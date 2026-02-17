@@ -7,15 +7,13 @@ interface BrandMetric {
   nps: number
   awareness: number
   loyalty: number
-  change: number
+  category: string
 }
 
-const STATIC_BRANDS: BrandMetric[] = [
-  { brand: 'Brand A (Leader)', nps: 47, awareness: 67, loyalty: 72, change: 5 },
-  { brand: 'Brand D (Challenger)', nps: 52, awareness: 41, loyalty: 58, change: 8 },
-  { brand: 'Brand B', nps: 38, awareness: 54, loyalty: 65, change: -3 },
-  { brand: 'Brand C', nps: 29, awareness: 28, loyalty: 44, change: 4 },
-  { brand: 'Brand E', nps: 18, awareness: 19, loyalty: 31, change: -4 },
+const FALLBACK_BRANDS: BrandMetric[] = [
+  { brand: 'Tim Hortons', nps: 54, awareness: 76, loyalty: 5, category: 'QSR/Coffee' },
+  { brand: 'Starbucks', nps: 55, awareness: 66, loyalty: 4, category: 'QSR/Coffee' },
+  { brand: "McDonald's", nps: 30, awareness: 83, loyalty: 6, category: 'QSR' },
 ]
 
 const DATASETS = [
@@ -32,13 +30,24 @@ const DATASETS = [
   'ad_pretest_results_campaign_A_B_C.json',
 ]
 
-export default function Dashboard({ apiUrl: _apiUrl }: { apiUrl: string }) {
-  const [brands] = useState<BrandMetric[]>(STATIC_BRANDS)
+export default function Dashboard({ apiUrl }: { apiUrl: string }) {
+  const [brands, setBrands] = useState<BrandMetric[]>(FALLBACK_BRANDS)
+  const [totalRecords, setTotalRecords] = useState(4231)
   const [activeTab, setActiveTab] = useState<'overview' | 'nps' | 'competitive'>('overview')
 
   useEffect(() => {
-    // Future: fetch live metrics from /klaus/imi/dashboard
-  }, [])
+    fetch(`${apiUrl}/klaus/imi/dashboard`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.brands?.length) {
+          setBrands(data.brands)
+        }
+        if (data.total_records) {
+          setTotalRecords(data.total_records)
+        }
+      })
+      .catch(() => {}) // Use fallback data on error
+  }, [apiUrl])
 
   const maxNps = Math.max(...brands.map(b => b.nps))
 
@@ -73,14 +82,14 @@ export default function Dashboard({ apiUrl: _apiUrl }: { apiUrl: string }) {
         <div className={styles.stat}>
           <Users size={20} className={styles.statIcon} />
           <div>
-            <span className={styles.statValue}>2,405</span>
+            <span className={styles.statValue}>{totalRecords.toLocaleString()}</span>
             <span className={styles.statLabel}>Records</span>
           </div>
         </div>
         <div className={styles.stat}>
           <TrendingUp size={20} className={styles.statIcon} />
           <div>
-            <span className={styles.statValue}>15+</span>
+            <span className={styles.statValue}>{brands.length}</span>
             <span className={styles.statLabel}>Brands</span>
           </div>
         </div>
@@ -122,9 +131,7 @@ export default function Dashboard({ apiUrl: _apiUrl }: { apiUrl: string }) {
                     />
                     <span className={styles.npsValue}>+{b.nps}</span>
                   </div>
-                  <span className={`${styles.npsChange} ${b.change >= 0 ? styles.up : styles.down}`}>
-                    {b.change >= 0 ? '+' : ''}{b.change}
-                  </span>
+                  <span className={styles.npsChange}>{b.category}</span>
                 </div>
               ))}
             </div>
@@ -153,7 +160,7 @@ export default function Dashboard({ apiUrl: _apiUrl }: { apiUrl: string }) {
               <span>NPS</span>
               <span>Awareness</span>
               <span>Loyalty</span>
-              <span>Q/Q Change</span>
+              <span>Category</span>
             </div>
             {brands.map(b => (
               <div key={b.brand} className={styles.tableRow}>
@@ -161,9 +168,7 @@ export default function Dashboard({ apiUrl: _apiUrl }: { apiUrl: string }) {
                 <span className={styles.npsCell}>+{b.nps}</span>
                 <span>{b.awareness}%</span>
                 <span>{b.loyalty}%</span>
-                <span className={`${styles.changeCell} ${b.change >= 0 ? styles.up : styles.down}`}>
-                  {b.change >= 0 ? '+' : ''}{b.change}
-                </span>
+                <span>{b.category}</span>
               </div>
             ))}
           </div>
