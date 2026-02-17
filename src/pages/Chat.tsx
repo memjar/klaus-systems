@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Loader2 } from 'lucide-react'
+import { Send, Loader2, Paperclip } from 'lucide-react'
 import styles from './Chat.module.css'
 
 interface Message {
@@ -12,38 +12,99 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  const sendMessage = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!input.trim() || loading) return
+  const sendMessage = async (text?: string) => {
+    const msg = (text || input).trim()
+    if (!msg || loading) return
 
-    const userMsg: Message = { role: 'user', content: input.trim() }
+    const userMsg: Message = { role: 'user', content: msg }
     setMessages(prev => [...prev, userMsg])
     setInput('')
     setLoading(true)
 
     try {
-      const res = await fetch(`${apiUrl}/imi/chat`, {
+      const res = await fetch(`${apiUrl}/klaus/imi/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: userMsg.content,
+          message: msg,
           history: messages,
           agent: 'klaus-imi',
         }),
       })
-      const data = await res.json()
-      setMessages(prev => [...prev, { role: 'assistant', content: data.response || data.message || 'No response' }])
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+
+      // Handle NDJSON streaming from backend
+      const reader = res.body?.getReader()
+      if (!reader) throw new Error('No reader')
+
+      const decoder = new TextDecoder()
+      let fullContent = ''
+
+      // Add empty assistant message that we'll stream into
+      setMessages(prev => [...prev, { role: 'assistant', content: '' }])
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        const chunk = decoder.decode(value, { stream: true })
+        const lines = chunk.split('\n').filter(l => l.trim())
+
+        for (const line of lines) {
+          try {
+            const parsed = JSON.parse(line)
+            const token = parsed.message?.content || ''
+            if (token) {
+              fullContent += token
+              const content = fullContent
+              setMessages(prev => {
+                const updated = [...prev]
+                updated[updated.length - 1] = { role: 'assistant', content }
+                return updated
+              })
+            }
+          } catch {
+            // skip malformed lines
+          }
+        }
+      }
+
+      // If we got no content at all, show error
+      if (!fullContent) {
+        setMessages(prev => {
+          const updated = [...prev]
+          updated[updated.length - 1] = { role: 'assistant', content: 'No response from model — check if Ollama is running.' }
+          return updated
+        })
+      }
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Connection error — backend offline' }])
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Connection error — backend may be offline.' }])
     } finally {
       setLoading(false)
+      inputRef.current?.focus()
     }
   }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    sendMessage()
+  }
+
+  const SUGGESTIONS = [
+    "What's Tim Hortons' NPS score?",
+    'Compare Gen Z purchase drivers across datasets',
+    'Brand health summary for all tracked brands',
+    'Show me the competitive benchmark data',
+    'What does the say-do gap analysis reveal?',
+    'Sponsorship ROI insights',
+  ]
 
   return (
     <div className={styles.container}>
@@ -52,15 +113,10 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
           <div className={styles.empty}>
             <span className={styles.emptyK}>K</span>
             <h2>Klaus IMI Research Intelligence</h2>
-            <p>Ask me anything about IMI's market research data, brand health metrics, consumer insights, or competitive analysis.</p>
+            <p>Powered by Qwen 32B — trained on 55+ years of IMI consumer research across 18 countries covering 70% of global GDP.</p>
             <div className={styles.suggestions}>
-              {[
-                "What's Tim Hortons' NPS score?",
-                'Compare Gen Z purchase drivers across datasets',
-                'Brand health summary for all tracked brands',
-                'What competitive advantages does Klaus have?',
-              ].map(s => (
-                <button key={s} className={styles.suggestion} onClick={() => { setInput(s) }}>
+              {SUGGESTIONS.map(s => (
+                <button key={s} className={styles.suggestion} onClick={() => sendMessage(s)}>
                   {s}
                 </button>
               ))}
@@ -71,11 +127,11 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
           <div key={i} className={`${styles.message} ${styles[msg.role]}`}>
             {msg.role === 'assistant' && <span className={styles.avatar}>K</span>}
             <div className={styles.bubble}>
-              <pre className={styles.content}>{msg.content}</pre>
+              <div className={styles.content}>{msg.content}</div>
             </div>
           </div>
         ))}
-        {loading && (
+        {loading && messages[messages.length - 1]?.role !== 'assistant' && (
           <div className={`${styles.message} ${styles.assistant}`}>
             <span className={styles.avatar}>K</span>
             <div className={styles.bubble}>
@@ -86,8 +142,12 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
         )}
         <div ref={bottomRef} />
       </div>
-      <form onSubmit={sendMessage} className={styles.inputArea}>
+      <form onSubmit={handleSubmit} className={styles.inputArea}>
+        <button type="button" className={styles.attachBtn} title="Upload survey data">
+          <Paperclip size={18} />
+        </button>
         <input
+          ref={inputRef}
           value={input}
           onChange={e => setInput(e.target.value)}
           placeholder="Ask Klaus about IMI research data..."

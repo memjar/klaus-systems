@@ -1,16 +1,17 @@
 .container {
   padding: 32px;
-  max-width: 1000px;
+  overflow-y: auto;
+  height: 100%;
 }
 
 .header {
-  margin-bottom: 32px;
+  margin-bottom: 20px;
 }
 
 .header h1 {
   font-size: 22px;
   font-weight: 600;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .header p {
@@ -18,6 +19,73 @@
   color: var(--text-muted);
 }
 
+/* Controls */
+.controls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.searchWrap {
+  position: relative;
+  flex: 0 0 260px;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+}
+
+.search {
+  width: 100%;
+  padding: 8px 12px 8px 34px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.search:focus {
+  border-color: var(--green);
+}
+
+.categories {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.catBtn {
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.catBtn:hover {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.catActive {
+  background: var(--green-glow);
+  border-color: var(--green);
+  color: var(--green);
+}
+
+/* Table */
 .table {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
@@ -27,19 +95,19 @@
 
 .tableHeader {
   display: grid;
-  grid-template-columns: 260px 80px 1fr;
+  grid-template-columns: 2.5fr 1fr 0.7fr 3fr;
   padding: 12px 20px;
   background: var(--bg-tertiary);
   font-size: 11px;
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
 }
 
 .row {
   display: grid;
-  grid-template-columns: 260px 80px 1fr;
+  grid-template-columns: 2.5fr 1fr 0.7fr 3fr;
   padding: 12px 20px;
   border-top: 1px solid var(--border);
   align-items: center;
@@ -50,19 +118,84 @@
   background: var(--bg-tertiary);
 }
 
+.fileCell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fileIcon {
+  color: var(--green);
+  flex-shrink: 0;
+}
+
 .fileName {
   font-family: var(--font-mono);
-  font-size: 13px;
-  color: var(--green);
+  font-size: 12px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.category {
+  font-size: 12px;
+}
+
+.catTag {
+  padding: 2px 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 11px;
+  color: var(--text-muted);
 }
 
 .records {
   font-family: var(--font-mono);
   font-size: 13px;
-  color: var(--text-secondary);
+  color: var(--green);
+  font-weight: 600;
 }
 
 .desc {
-  font-size: 13px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.noResults {
+  padding: 40px;
+  text-align: center;
   color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* Footer */
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.exportBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.exportBtn:hover {
+  border-color: var(--green);
+  color: var(--green);
 }

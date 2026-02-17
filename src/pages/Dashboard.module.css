@@ -1,16 +1,20 @@
 .container {
   padding: 32px;
-  max-width: 1000px;
+  overflow-y: auto;
+  height: 100%;
 }
 
 .header {
-  margin-bottom: 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
 }
 
 .header h1 {
   font-size: 22px;
   font-weight: 600;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .header p {
@@ -18,52 +22,266 @@
   color: var(--text-muted);
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 32px;
-}
-
-.card {
+.tabs {
+  display: flex;
+  gap: 4px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  border-radius: 8px;
+  padding: 3px;
 }
 
-.cardValue {
+.tab {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.tab:hover {
+  color: var(--text-primary);
+}
+
+.tabActive {
+  background: var(--green-glow);
+  color: var(--green);
+}
+
+/* Stats Row */
+.statsRow {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.stat {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.stat > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.statIcon {
+  color: var(--green);
+  flex-shrink: 0;
+}
+
+.statValue {
   font-family: var(--font-mono);
-  font-size: 28px;
+  font-size: 18px;
   font-weight: 700;
   color: var(--green);
 }
 
-.cardLabel {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.cardSub {
+.statLabel {
   font-size: 11px;
   color: var(--text-muted);
 }
 
-.placeholder {
-  background: var(--bg-secondary);
-  border: 1px dashed var(--border);
-  border-radius: 12px;
-  padding: 60px;
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 13px;
+/* Sections */
+.section {
+  margin-bottom: 28px;
 }
 
-.placeholder code {
+.section h2 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: var(--text-primary);
+}
+
+/* NPS Chart */
+.npsChart {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.npsRow {
+  display: grid;
+  grid-template-columns: 180px 1fr 50px;
+  align-items: center;
+  gap: 12px;
+}
+
+.npsLabel {
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.npsBarWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 24px;
+}
+
+.npsBar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--green-dim), var(--green));
+  border-radius: 4px;
+  transition: width 0.5s ease;
+  min-width: 4px;
+}
+
+.npsValue {
   font-family: var(--font-mono);
-  color: var(--green-dim);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--green);
+  white-space: nowrap;
+}
+
+.npsChange {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: right;
+}
+
+.up { color: var(--green); }
+.down { color: #ff4444; }
+
+/* Dataset Grid */
+.datasetGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 8px;
+}
+
+.dataset {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.datasetIcon {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--green);
+  background: var(--green-glow);
+  padding: 3px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.datasetName {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* NPS Table */
+.npsTable {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.tableHead {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+  padding: 12px 20px;
+  background: var(--bg-tertiary);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tableRow {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-secondary);
+  align-items: center;
+}
+
+.brandName {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.npsCell {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--green);
+}
+
+.changeCell {
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.insight {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--green-glow);
+  border: 1px solid rgba(0, 255, 65, 0.2);
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.insight strong {
+  color: var(--green);
+}
+
+/* Competitive Grid */
+.compGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.compCard {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.compCard h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--green);
+  margin-bottom: 8px;
+}
+
+.compCard p {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
 }
