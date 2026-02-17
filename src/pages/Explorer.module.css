@@ -1,0 +1,68 @@
+.container {
+  padding: 32px;
+  max-width: 1000px;
+}
+
+.header {
+  margin-bottom: 32px;
+}
+
+.header h1 {
+  font-size: 22px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.header p {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.table {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.tableHeader {
+  display: grid;
+  grid-template-columns: 260px 80px 1fr;
+  padding: 12px 20px;
+  background: var(--bg-tertiary);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 260px 80px 1fr;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+  align-items: center;
+  transition: background 0.1s;
+}
+
+.row:hover {
+  background: var(--bg-tertiary);
+}
+
+.fileName {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--green);
+}
+
+.records {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.desc {
+  font-size: 13px;
+  color: var(--text-muted);
+}
