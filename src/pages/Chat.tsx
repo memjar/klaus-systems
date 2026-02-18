@@ -1,10 +1,86 @@
 import { useState, useRef, useEffect } from 'react'
 import { Send, Loader2, Paperclip } from 'lucide-react'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
+import MarkdownContent from '../components/MarkdownContent'
 import styles from './Chat.module.css'
+
+const THINKING_PHRASES = [
+  'Analyzing data',
+  'Cross-referencing sources',
+  'Evaluating patterns',
+  'Synthesizing insights',
+  'Processing context',
+  'Reviewing methodology',
+  'Correlating findings',
+  'Generating response',
+]
+
+function ThinkingAnimation() {
+  const [index, setIndex] = useState(0)
+  const [fade, setFade] = useState(true)
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setFade(false)
+      setTimeout(() => {
+        setIndex(i => (i + 1) % THINKING_PHRASES.length)
+        setFade(true)
+      }, 300)
+    }, 2400)
+    return () => clearInterval(interval)
+  }, [])
+
+  return (
+    <span className={`${styles.thinking} ${fade ? styles.fadeIn : styles.fadeOut}`}>
+      {THINKING_PHRASES[index]}...
+    </span>
+  )
+}
+
+interface ChartData {
+  chart: 'bar' | 'pie'
+  title: string
+  data: Record<string, unknown>[]
+  xKey?: string
+  yKey?: string
+  yKeys?: string[]
+}
 
 interface Message {
   role: 'user' | 'assistant'
   content: string
+  chart?: ChartData
+  responseTime?: number
+}
+
+const CHART_COLORS = ['#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd', '#818cf8', '#4f46e5', '#7c3aed', '#5b21b6']
+
+function InlineChart({ chart }: { chart: ChartData }) {
+  return (
+    <div style={{ marginTop: 12, background: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: 12 }}>
+      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, opacity: 0.8 }}>{chart.title}</div>
+      <ResponsiveContainer width="100%" height={200}>
+        {chart.chart === 'pie' ? (
+          <PieChart>
+            <Pie data={chart.data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label={({ name, value }) => `${name}: ${value}%`}>
+              {chart.data.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+            </Pie>
+            <Tooltip />
+          </PieChart>
+        ) : (
+          <BarChart data={chart.data}>
+            <XAxis dataKey={chart.xKey || 'name'} tick={{ fontSize: 11 }} />
+            <YAxis tick={{ fontSize: 11 }} />
+            <Tooltip />
+            {chart.yKeys
+              ? chart.yKeys.map((k, i) => <Bar key={k} dataKey={k} fill={CHART_COLORS[i % CHART_COLORS.length]} radius={[4, 4, 0, 0]} />)
+              : <Bar dataKey={chart.yKey || 'value'} fill={CHART_COLORS[0]} radius={[4, 4, 0, 0]} />
+            }
+          </BarChart>
+        )}
+      </ResponsiveContainer>
+    </div>
+  )
 }
 
 export default function Chat({ apiUrl }: { apiUrl: string }) {
@@ -27,6 +103,7 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
     setInput('')
     setLoading(true)
 
+    const startTime = Date.now()
     try {
       const res = await fetch(`${apiUrl}/klaus/imi/chat`, {
         method: 'POST',
@@ -74,6 +151,38 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
             // skip malformed lines
           }
         }
+      }
+
+      // Record response time
+      const elapsed = Date.now() - startTime
+      setMessages(prev => {
+        const updated = [...prev]
+        updated[updated.length - 1] = { ...updated[updated.length - 1], responseTime: elapsed }
+        return updated
+      })
+
+      // Auto-detect if we should show a chart
+      const chartKeywords = /\b(nps|brand|market share|awareness|competitive|benchmark)\b/i
+      if (fullContent && chartKeywords.test(msg)) {
+        try {
+          const chartType = /market.?share/i.test(msg) ? 'market_share'
+            : /awareness/i.test(msg) ? 'awareness' : 'nps_comparison'
+          const chartRes = await fetch(`${apiUrl}/klaus/imi/visualize`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: chartType }),
+          })
+          if (chartRes.ok) {
+            const chartData = await chartRes.json() as ChartData
+            if (chartData.data?.length) {
+              setMessages(prev => {
+                const updated = [...prev]
+                updated[updated.length - 1] = { ...updated[updated.length - 1], chart: chartData }
+                return updated
+              })
+            }
+          }
+        } catch { /* chart is optional enhancement */ }
       }
 
       // If we got no content at all, show error
@@ -127,7 +236,10 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
           <div key={i} className={`${styles.message} ${styles[msg.role]}`}>
             {msg.role === 'assistant' && <span className={styles.avatar}>K</span>}
             <div className={styles.bubble}>
-              <div className={styles.content}>{msg.content}</div>
+              <div className={styles.content}>
+                <MarkdownContent content={msg.content} responseTime={msg.responseTime} />
+              </div>
+              {msg.chart && <InlineChart chart={msg.chart} />}
             </div>
           </div>
         ))}
@@ -136,7 +248,7 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
             <span className={styles.avatar}>K</span>
             <div className={styles.bubble}>
               <Loader2 size={16} className={styles.spinner} />
-              <span className={styles.thinking}>Analyzing...</span>
+              <ThinkingAnimation />
             </div>
           </div>
         )}

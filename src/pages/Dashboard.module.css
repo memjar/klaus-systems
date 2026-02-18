@@ -285,3 +285,59 @@
   line-height: 1.5;
   color: var(--text-secondary);
 }
+
+/* ===== MOBILE ===== */
+@media (max-width: 768px) {
+  .container {
+    padding: 16px 12px;
+  }
+
+  .header {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .header h1 {
+    font-size: 18px;
+  }
+
+  .tabs {
+    flex-wrap: wrap;
+  }
+
+  .statsRow {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .npsRow {
+    grid-template-columns: 100px 1fr 40px;
+    gap: 8px;
+  }
+
+  .npsLabel {
+    font-size: 11px;
+  }
+
+  .tableHead,
+  .tableRow {
+    grid-template-columns: 2fr 1fr 1fr;
+    font-size: 11px;
+    padding: 10px 12px;
+  }
+
+  .tableHead > :nth-child(4),
+  .tableHead > :nth-child(5),
+  .tableRow > :nth-child(4),
+  .tableRow > :nth-child(5) {
+    display: none;
+  }
+
+  .compGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .datasetGrid {
+    grid-template-columns: 1fr;
+  }
+}

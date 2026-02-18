@@ -199,3 +199,38 @@
   border-color: var(--green);
   color: var(--green);
 }
+
+/* ===== MOBILE ===== */
+@media (max-width: 768px) {
+  .container {
+    padding: 16px 12px;
+  }
+
+  .header h1 {
+    font-size: 18px;
+  }
+
+  .searchWrap {
+    flex: 1 1 100%;
+  }
+
+  .tableHeader,
+  .row {
+    grid-template-columns: 2fr 1fr;
+    padding: 10px 12px;
+    font-size: 11px;
+  }
+
+  .tableHeader > :nth-child(3),
+  .tableHeader > :nth-child(4),
+  .row > :nth-child(3),
+  .row > :nth-child(4) {
+    display: none;
+  }
+
+  .footer {
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+  }
+}
