@@ -99,8 +99,46 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [uploadedFile, setUploadedFile] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const formData = new FormData()
+    formData.append('file', file)
+
+    setMessages(prev => [...prev, { role: 'user', content: `📎 Uploading ${file.name}...` }])
+    setLoading(true)
+
+    try {
+      const res = await fetch(`${apiUrl}/klaus/imi/upload-survey`, {
+        method: 'POST',
+        headers: { 'ngrok-skip-browser-warning': 'true' },
+        body: formData,
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.detail || `HTTP ${res.status}`)
+      }
+      const data = await res.json()
+      setUploadedFile(data.survey_name)
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `✅ **${data.survey_name}** uploaded successfully.\n\n- **Respondents:** ${data.total_n}\n- **Questions:** ${data.questions_found}\n- **Segments:** ${data.segments?.join(', ') || 'none'}\n- **Format:** ${data.format}\n\nYou can now ask questions about this data.`
+      }])
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Upload failed'
+      setMessages(prev => [...prev, { role: 'assistant', content: `❌ Upload failed: ${msg}` }])
+    } finally {
+      setLoading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      inputRef.current?.focus()
+    }
+  }
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -121,7 +159,7 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
         body: JSON.stringify({
-          message: msg,
+          message: uploadedFile ? `[Context: user uploaded survey "${uploadedFile}"]\n${msg}` : msg,
           history: messages,
           agent: 'klaus-imi',
           use_tools: true,
@@ -310,7 +348,14 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
         <div ref={bottomRef} />
       </div>
       <form onSubmit={handleSubmit} className={styles.inputArea}>
-        <button type="button" className={styles.attachBtn} title="Upload survey data">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".xlsx,.xls,.csv,.json"
+          onChange={handleFileUpload}
+          style={{ display: 'none' }}
+        />
+        <button type="button" className={styles.attachBtn} title="Upload survey data (.xlsx, .csv, .json)" onClick={() => fileInputRef.current?.click()} disabled={loading}>
           <Paperclip size={18} />
         </button>
         <input
