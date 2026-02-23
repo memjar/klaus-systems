@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { Outlet, NavLink } from 'react-router-dom'
-import { MessageSquare, BarChart3, Database, LogOut, Menu, X } from 'lucide-react'
+import { MessageSquare, Terminal, LogOut, Menu, X } from 'lucide-react'
 import styles from './Layout.module.css'
 
 export default function Layout({ apiUrl: _apiUrl }: { apiUrl: string }) {
@@ -35,13 +35,9 @@ export default function Layout({ apiUrl: _apiUrl }: { apiUrl: string }) {
             <MessageSquare size={18} />
             <span>Chat</span>
           </NavLink>
-          <NavLink to="/dashboard" className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ''}`} onClick={closeSidebar}>
-            <BarChart3 size={18} />
-            <span>Dashboard</span>
-          </NavLink>
-          <NavLink to="/explorer" className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ''}`} onClick={closeSidebar}>
-            <Database size={18} />
-            <span>Explorer</span>
+          <NavLink to="/kode" className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ''}`} onClick={closeSidebar}>
+            <Terminal size={18} />
+            <span>Kode</span>
           </NavLink>
         </div>
         <div className={styles.footer}>

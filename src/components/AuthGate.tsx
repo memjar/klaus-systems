@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react' // useRef still used by pollRef
+import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   OBSERVER_ENDPOINTS,
   OBSERVER_CONFIG,
@@ -7,46 +7,32 @@ import {
 } from '../lib/observer-auth'
 import styles from './AuthGate.module.css'
 
-function QRCode({ data, size = 200 }: { data: string; size?: number }) {
-  const src = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(data)}`
-  return <img src={src} width={size} height={size} alt="QR Code" className={styles.qrCanvas} />
-}
-
 export function AuthGate({ children }: { children: React.ReactNode }) {
-  const [sessionId, setSessionId] = useState<string | null>(null)
-  const [code, setCode] = useState<string | null>(null)
-  const [showQR, setShowQR] = useState(false)
-  const [status, setStatus] = useState<'checking' | 'idle' | 'waiting' | 'approved' | 'expired' | 'fallback'>('checking')
+  const [status, setStatus] = useState<'checking' | 'idle' | 'waiting' | 'approved' | 'expired' | 'error' | 'fallback'>('checking')
   const [accessCode, setAccessCode] = useState('')
   const [accessError, setAccessError] = useState('')
+  const [showFallback, setShowFallback] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
-    if (isAuthenticated()) {
-      setStatus('approved')
-    } else if (localStorage.getItem('klaus_auth')) {
+    if (isAuthenticated() || localStorage.getItem('klaus_auth')) {
       setStatus('approved')
     } else {
-      // Auto-start Observer session so code shows immediately
-      startLogin()
+      setStatus('idle')
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
-  const startLogin = useCallback(async () => {
+  const requestAccess = useCallback(async () => {
     try {
+      setStatus('waiting')
       const res = await fetch(OBSERVER_ENDPOINTS.START, { method: 'POST' })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
-
-      setSessionId(data.session_id)
-      setCode(data.code)
-      setStatus('waiting')
 
       pollRef.current = setInterval(async () => {
         try {
           const check = await fetch(OBSERVER_ENDPOINTS.CHECK(data.session_id))
           const result = await check.json()
-
           if (result.status === 'approved') {
             storeAuth(result.device_id || data.session_id)
             setStatus('approved')
@@ -55,14 +41,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             setStatus('expired')
             if (pollRef.current) clearInterval(pollRef.current)
           }
-        } catch {
-          // Keep polling on network errors
-        }
+        } catch { /* keep polling */ }
       }, OBSERVER_CONFIG.POLL_INTERVAL_MS)
-    } catch (err: any) {
-      // Observer unavailable — show fallback access code
-      console.warn('Observer Auth unavailable, showing fallback:', err.message)
-      setStatus('fallback')
+    } catch {
+      setStatus('error')
     }
   }, [])
 
@@ -72,9 +54,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   const reset = useCallback(() => {
     if (pollRef.current) clearInterval(pollRef.current)
-    setSessionId(null)
-    setCode(null)
     setStatus('idle')
+    setShowFallback(false)
   }, [])
 
   const handleAccessCode = (e: React.FormEvent) => {
@@ -83,7 +64,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       localStorage.setItem('klaus_auth', accessCode.trim())
       setStatus('approved')
     } else {
-      setAccessError('Invalid access code')
+      setAccessError('ACCESS DENIED')
     }
   }
 
@@ -91,109 +72,142 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   if (status === 'checking') return (
     <div className={styles.container}>
+      <div className={styles.scanlines} />
       <div className={styles.card}>
         <div className={styles.spinner} />
-        <p className={styles.checkingText}>Checking authorization...</p>
+        <p className={styles.mutedText}>INITIALIZING...</p>
       </div>
     </div>
   )
 
-  const qrUrl = sessionId ? OBSERVER_ENDPOINTS.SCAN(sessionId) : ''
-
   return (
     <div className={styles.container}>
+      <div className={styles.scanlines} />
+      <div className={styles.gridBg} />
+
       <div className={styles.card}>
-        <div className={styles.logo}>
-          <span className={styles.logoK}>K</span>
+        {/* Terminal header */}
+        <div className={styles.terminalBar}>
+          <span className={styles.dot} data-color="red" />
+          <span className={styles.dot} data-color="yellow" />
+          <span className={styles.dot} data-color="green" />
+          <span className={styles.terminalTitle}>klaus-auth</span>
         </div>
-        <h1 className={styles.title}>KLAUS SYSTEMS</h1>
-        <p className={styles.subtitle}>IMI Research Intelligence Platform</p>
 
-        {status === 'idle' && (
-          <div className={styles.section}>
-            <button onClick={startLogin} className={styles.primaryButton}>
-              Sign In with Observer
-            </button>
-            <button onClick={() => setStatus('fallback')} className={styles.linkButton}>
-              Use access code instead
-            </button>
+        {/* Logo */}
+        <div className={styles.logoArea}>
+          <div className={styles.logoOuter}>
+            <div className={styles.logoInner}>K</div>
           </div>
-        )}
+          <h1 className={styles.title}>KLAUS SYSTEMS</h1>
+          <div className={styles.tagline}>
+            <span className={styles.tagBracket}>[</span>
+            <span className={styles.tagText}>Intelligence Management Interface</span>
+            <span className={styles.tagBracket}>]</span>
+          </div>
+        </div>
 
-        {status === 'waiting' && code && sessionId && (
-          <div className={styles.section}>
-            <div className={styles.toggleRow}>
-              <button
-                onClick={() => setShowQR(false)}
-                className={`${styles.toggleBtn} ${!showQR ? styles.toggleActive : ''}`}
-              >
-                Manual Code
-              </button>
-              <button
-                onClick={() => setShowQR(true)}
-                className={`${styles.toggleBtn} ${showQR ? styles.toggleActive : ''}`}
-              >
-                QR Code
-              </button>
-            </div>
+        {/* Status line */}
+        <div className={styles.statusLine}>
+          <span className={styles.statusDot} data-active={status === 'waiting' ? 'true' : 'false'} />
+          <span className={styles.statusLabel}>
+            {status === 'idle' && 'AWAITING AUTHENTICATION'}
+            {status === 'waiting' && 'PUSH SENT — AWAITING APPROVAL'}
+            {status === 'expired' && 'SESSION EXPIRED'}
+            {status === 'error' && 'CONNECTION FAILED'}
+          </span>
+        </div>
 
-            {!showQR ? (
-              <>
-                <p className={styles.hint}>Enter this code on your phone:</p>
-                <div className={styles.bigCode}>{code}</div>
-                <p className={styles.codeHint}>
-                  Or switch to <span className={styles.codeInline}>QR Code</span> to scan
-                </p>
-              </>
-            ) : (
-              <>
-                <p className={styles.hint}>Scan with your phone camera:</p>
-                <div className={styles.qrWrap}>
-                  <QRCode data={qrUrl} size={200} />
+        {/* Main content */}
+        <div className={styles.body}>
+          {status === 'idle' && !showFallback && (
+            <>
+              <button onClick={requestAccess} className={styles.pushButton}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg>
+                PUSH TO DEVICE
+              </button>
+              <p className={styles.pushHint}>Sends approval request to authorized devices</p>
+              <button onClick={() => setShowFallback(true)} className={styles.ghostButton}>
+                enter access code
+              </button>
+            </>
+          )}
+
+          {status === 'idle' && showFallback && (
+            <>
+              <form onSubmit={handleAccessCode} className={styles.form}>
+                <div className={styles.inputRow}>
+                  <span className={styles.inputPrompt}>$</span>
+                  <input
+                    type="password"
+                    value={accessCode}
+                    onChange={e => { setAccessCode(e.target.value); setAccessError('') }}
+                    placeholder="enter-access-code"
+                    className={styles.input}
+                    autoFocus
+                  />
                 </div>
-              </>
-            )}
+                {accessError && <p className={styles.error}>{accessError}</p>}
+                <button type="submit" className={styles.submitButton}>AUTHENTICATE</button>
+              </form>
+              <button onClick={() => setShowFallback(false)} className={styles.ghostButton}>
+                back to push
+              </button>
+            </>
+          )}
 
-            <div className={styles.pollingIndicator}>
-              <span className={styles.pulseDot} />
-              Waiting for approval...
-            </div>
+          {status === 'waiting' && (
+            <>
+              <div className={styles.rippleContainer}>
+                <div className={styles.ripple} />
+                <div className={styles.ripple} data-delay="1" />
+                <div className={styles.ripple} data-delay="2" />
+                <svg className={styles.bellIcon} width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg>
+              </div>
+              <p className={styles.waitingText}>Waiting for James or Mike...</p>
+              <div className={styles.terminalLog}>
+                <span className={styles.logLine}>&gt; push notification sent</span>
+                <span className={styles.logLine}>&gt; polling for approval<span className={styles.cursor}>_</span></span>
+              </div>
+              <button onClick={reset} className={styles.ghostButton}>cancel</button>
+            </>
+          )}
 
-            <button onClick={reset} className={styles.linkButton}>Cancel</button>
-          </div>
-        )}
+          {status === 'expired' && (
+            <>
+              <div className={styles.errorBox}>
+                <span className={styles.errorIcon}>!</span>
+                <span>Session timed out. Request again.</span>
+              </div>
+              <button onClick={reset} className={styles.pushButton}>TRY AGAIN</button>
+            </>
+          )}
 
-        {status === 'expired' && (
-          <div className={styles.section}>
-            <div className={styles.expiredBox}>
-              <p className={styles.expiredTitle}>Code Expired</p>
-              <p className={styles.hint}>The authentication code has expired.</p>
-            </div>
-            <button onClick={reset} className={styles.secondaryButton}>Try Again</button>
-          </div>
-        )}
+          {status === 'error' && (
+            <>
+              <div className={styles.errorBox}>
+                <span className={styles.errorIcon}>!</span>
+                <span>Observer unavailable</span>
+              </div>
+              <button onClick={() => { setStatus('idle'); setShowFallback(true) }} className={styles.pushButton}>
+                USE ACCESS CODE
+              </button>
+            </>
+          )}
+        </div>
 
-        {status === 'fallback' && (
-          <div className={styles.section}>
-            <form onSubmit={handleAccessCode} className={styles.form}>
-              <input
-                type="password"
-                value={accessCode}
-                onChange={e => { setAccessCode(e.target.value); setAccessError('') }}
-                placeholder="Access code"
-                className={styles.input}
-                autoFocus
-              />
-              {accessError && <p className={styles.error}>{accessError}</p>}
-              <button type="submit" className={styles.primaryButton}>Authenticate</button>
-            </form>
-            <button onClick={() => setStatus('idle')} className={styles.linkButton}>
-              Back to Observer
-            </button>
-          </div>
-        )}
-
-        <p className={styles.powered}>Powered by AXE Technology</p>
+        {/* Footer */}
+        <div className={styles.footer}>
+          <span className={styles.footerText}>AXE TECHNOLOGY</span>
+          <span className={styles.footerDivider} />
+          <span className={styles.footerText}>v3.0</span>
+        </div>
       </div>
     </div>
   )

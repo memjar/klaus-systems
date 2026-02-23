@@ -111,7 +111,9 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
         body: JSON.stringify({
           message: msg,
           history: messages,
+          model: 'qwen3:32b',
           agent: 'klaus-imi',
+          use_tools: true,
         }),
       })
 
