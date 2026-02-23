@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { Outlet, NavLink } from 'react-router-dom'
-import { MessageSquare, Terminal, LogOut, Menu, X } from 'lucide-react'
+import { MessageSquare, Terminal, LayoutDashboard, Database, Code2, Brain, FileBarChart, LogOut, Menu, X } from 'lucide-react'
 import styles from './Layout.module.css'
 
 export default function Layout({ apiUrl: _apiUrl }: { apiUrl: string }) {
@@ -31,6 +31,7 @@ export default function Layout({ apiUrl: _apiUrl }: { apiUrl: string }) {
           <span className={styles.logoText}>KLAUS</span>
         </div>
         <div className={styles.nav}>
+          <div className={styles.sectionLabel}>Core</div>
           <NavLink to="/" end className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ''}`} onClick={closeSidebar}>
             <MessageSquare size={18} />
             <span>Chat</span>
@@ -38,6 +39,30 @@ export default function Layout({ apiUrl: _apiUrl }: { apiUrl: string }) {
           <NavLink to="/kode" className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ''}`} onClick={closeSidebar}>
             <Terminal size={18} />
             <span>Kode</span>
+          </NavLink>
+          <NavLink to="/dashboard" className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ''}`} onClick={closeSidebar}>
+            <LayoutDashboard size={18} />
+            <span>Dashboard</span>
+          </NavLink>
+
+          <div className={styles.sectionLabel}>Research</div>
+          <NavLink to="/explorer" className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ''}`} onClick={closeSidebar}>
+            <Database size={18} />
+            <span>Explorer</span>
+          </NavLink>
+          <NavLink to="/sql" className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ''}`} onClick={closeSidebar}>
+            <Code2 size={18} />
+            <span>SQL Lab</span>
+          </NavLink>
+
+          <div className={styles.sectionLabel}>Intelligence</div>
+          <NavLink to="/insights" className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ''}`} onClick={closeSidebar}>
+            <Brain size={18} />
+            <span>Insights</span>
+          </NavLink>
+          <NavLink to="/reports" className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ''}`} onClick={closeSidebar}>
+            <FileBarChart size={18} />
+            <span>Reports</span>
           </NavLink>
         </div>
         <div className={styles.footer}>

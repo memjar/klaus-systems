@@ -163,6 +163,7 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
           history: messages,
           agent: 'klaus-imi',
           use_tools: true,
+          prefer_speed: true,
         }),
       })
 

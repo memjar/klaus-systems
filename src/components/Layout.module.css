@@ -49,6 +49,17 @@
   flex-direction: column;
   gap: 4px;
   flex: 1;
+  overflow-y: auto;
+}
+
+.sectionLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--text-muted);
+  padding: 16px 12px 4px;
 }
 
 .link {
