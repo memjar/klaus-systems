@@ -1,39 +1,42 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Loader2, Paperclip } from 'lucide-react'
+import { Send, Loader2, Paperclip, FileText, TrendingUp, BookOpen, AlertTriangle } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import MarkdownContent from '../components/MarkdownContent'
 import styles from './Chat.module.css'
 
-const THINKING_PHRASES = [
-  'Analyzing data',
-  'Cross-referencing sources',
-  'Evaluating patterns',
-  'Synthesizing insights',
-  'Processing context',
-  'Reviewing methodology',
-  'Correlating findings',
-  'Generating response',
+const THINKING_MESSAGES = [
+  'Thinking...',
+  'On it...',
+  'Working...',
+  'Let me see...',
+  'Processing...',
+  'Almost ready...',
 ]
 
 function ThinkingAnimation() {
-  const [index, setIndex] = useState(0)
-  const [fade, setFade] = useState(true)
+  const [phase, setPhase] = useState(0)
+  const [dots, setDots] = useState('')
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setFade(false)
-      setTimeout(() => {
-        setIndex(i => (i + 1) % THINKING_PHRASES.length)
-        setFade(true)
-      }, 300)
-    }, 2400)
+      setPhase(p => (p + 1) % THINKING_MESSAGES.length)
+    }, 600)
     return () => clearInterval(interval)
   }, [])
 
+  useEffect(() => {
+    const dotInterval = setInterval(() => {
+      setDots(d => d.length >= 3 ? '' : d + '.')
+    }, 300)
+    return () => clearInterval(dotInterval)
+  }, [])
+
+  const baseMessage = THINKING_MESSAGES[phase].replace(/\.+$/, '')
+
   return (
-    <span className={`${styles.thinking} ${fade ? styles.fadeIn : styles.fadeOut}`}>
-      {THINKING_PHRASES[index]}...
-    </span>
+    <div className={styles.thinkingTextOnly}>
+      <span className={styles.thinkingText}>{baseMessage}{dots}</span>
+    </div>
   )
 }
 
@@ -46,11 +49,20 @@ interface ChartData {
   yKeys?: string[]
 }
 
+interface ToolActivity {
+  tool: string
+  status: 'running' | 'done'
+  preview?: string
+  durationMs?: number
+}
+
 interface Message {
   role: 'user' | 'assistant'
   content: string
   chart?: ChartData
   responseTime?: number
+  tools?: ToolActivity[]
+  thinking?: string
 }
 
 const CHART_COLORS = ['#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd', '#818cf8', '#4f46e5', '#7c3aed', '#5b21b6']
@@ -111,7 +123,6 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
         body: JSON.stringify({
           message: msg,
           history: messages,
-          model: 'qwen3:32b',
           agent: 'klaus-imi',
           use_tools: true,
         }),
@@ -119,15 +130,22 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
 
-      // Handle NDJSON streaming from backend
       const reader = res.body?.getReader()
       if (!reader) throw new Error('No reader')
 
       const decoder = new TextDecoder()
       let fullContent = ''
+      const toolsUsed: ToolActivity[] = []
 
-      // Add empty assistant message that we'll stream into
       setMessages(prev => [...prev, { role: 'assistant', content: '' }])
+
+      const updateLast = (patch: Partial<Message>) => {
+        setMessages(prev => {
+          const updated = [...prev]
+          updated[updated.length - 1] = { ...updated[updated.length - 1], ...patch }
+          return updated
+        })
+      }
 
       while (true) {
         const { done, value } = await reader.read()
@@ -139,15 +157,33 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
         for (const line of lines) {
           try {
             const parsed = JSON.parse(line)
-            const token = parsed.message?.content || ''
-            if (token) {
-              fullContent += token
-              const content = fullContent
-              setMessages(prev => {
-                const updated = [...prev]
-                updated[updated.length - 1] = { role: 'assistant', content }
-                return updated
-              })
+
+            // Agent loop event format: {type: "token"|"tool_start"|"tool_result"|"thinking"|"done"}
+            if (parsed.type === 'token') {
+              fullContent += parsed.content || ''
+              updateLast({ content: fullContent, tools: [...toolsUsed] })
+            } else if (parsed.type === 'tool_start') {
+              toolsUsed.push({ tool: parsed.tool, status: 'running' })
+              updateLast({ tools: [...toolsUsed] })
+            } else if (parsed.type === 'tool_result') {
+              const last = [...toolsUsed].reverse().find((t: ToolActivity) => t.tool === parsed.tool && t.status === 'running')
+              if (last) {
+                last.status = 'done'
+                last.preview = parsed.preview
+                last.durationMs = parsed.duration_ms
+              }
+              updateLast({ tools: [...toolsUsed] })
+            } else if (parsed.type === 'thinking') {
+              updateLast({ thinking: parsed.content })
+            } else if (parsed.type === 'done') {
+              // final event
+            } else if (parsed.message?.content) {
+              // Raw Ollama streaming format (non-agent path) — strip think tags
+              const clean = parsed.message.content.replace(/<\/?think>/g, '')
+              if (clean) {
+                fullContent += clean
+                updateLast({ content: fullContent })
+              }
             }
           } catch {
             // skip malformed lines
@@ -155,13 +191,8 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
         }
       }
 
-      // Record response time
       const elapsed = Date.now() - startTime
-      setMessages(prev => {
-        const updated = [...prev]
-        updated[updated.length - 1] = { ...updated[updated.length - 1], responseTime: elapsed }
-        return updated
-      })
+      updateLast({ responseTime: elapsed })
 
       // Auto-detect if we should show a chart
       const chartKeywords = /\b(nps|brand|market share|awareness|competitive|benchmark)\b/i
@@ -212,9 +243,14 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
     "What's Tim Hortons' NPS score?",
     'Compare Gen Z purchase drivers across datasets',
     'Brand health summary for all tracked brands',
-    'Show me the competitive benchmark data',
     'What does the say-do gap analysis reveal?',
-    'Sponsorship ROI insights',
+  ]
+
+  const IMI_FEATURES = [
+    { icon: <FileText size={16} />, label: 'Report', prompt: 'Generate a full IMI brand health report with executive summary, key metrics table, competitive analysis, and strategic recommendations' },
+    { icon: <TrendingUp size={16} />, label: 'Meta-Analysis', prompt: 'Run a multi-study meta-analysis across all available IMI datasets — identify cross-study patterns, convergent findings, and statistical trends' },
+    { icon: <BookOpen size={16} />, label: 'Case Studies', prompt: 'Find the most relevant IMI case studies with ROI data, methodology details, and lessons learned across markets' },
+    { icon: <AlertTriangle size={16} />, label: 'Anomalies', prompt: 'Run anomaly detection across all IMI datasets — flag unusual patterns, outliers, sudden shifts in brand metrics, and data quality issues' },
   ]
 
   return (
@@ -224,7 +260,15 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
           <div className={styles.empty}>
             <span className={styles.emptyK}>K</span>
             <h2>Klaus IMI Research Intelligence</h2>
-            <p>Powered by Qwen 32B — trained on 55+ years of IMI consumer research across 18 countries covering 70% of global GDP.</p>
+            <p>Hydra-routed AI — auto-selects optimal model per query. 55+ years of IMI consumer research, 18 countries, 70% of global GDP.</p>
+            <div className={styles.features}>
+              {IMI_FEATURES.map(f => (
+                <button key={f.label} className={styles.featureBtn} onClick={() => sendMessage(f.prompt)}>
+                  {f.icon}
+                  <span>{f.label}</span>
+                </button>
+              ))}
+            </div>
             <div className={styles.suggestions}>
               {SUGGESTIONS.map(s => (
                 <button key={s} className={styles.suggestion} onClick={() => sendMessage(s)}>
@@ -238,6 +282,16 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
           <div key={i} className={`${styles.message} ${styles[msg.role]}`}>
             {msg.role === 'assistant' && <span className={styles.avatar}>K</span>}
             <div className={styles.bubble}>
+              {msg.tools && msg.tools.length > 0 && (
+                <div className={styles.toolActivity}>
+                  {msg.tools.map((t, ti) => (
+                    <span key={ti} className={`${styles.toolBadge} ${t.status === 'running' ? styles.toolRunning : styles.toolDone}`}>
+                      {t.status === 'running' ? <Loader2 size={10} className={styles.toolSpin} /> : null}
+                      {t.tool}{t.durationMs ? ` (${t.durationMs}ms)` : ''}
+                    </span>
+                  ))}
+                </div>
+              )}
               <div className={styles.content}>
                 <MarkdownContent content={msg.content} responseTime={msg.responseTime} />
               </div>
@@ -249,7 +303,6 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
           <div className={`${styles.message} ${styles.assistant}`}>
             <span className={styles.avatar}>K</span>
             <div className={styles.bubble}>
-              <Loader2 size={16} className={styles.spinner} />
               <ThinkingAnimation />
             </div>
           </div>

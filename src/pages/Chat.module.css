@@ -70,6 +70,69 @@
   color: var(--green);
 }
 
+.features {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.featureBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-green);
+  border-radius: 10px;
+  color: var(--green);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.featureBtn:hover {
+  background: rgba(74, 222, 128, 0.1);
+  border-color: var(--green);
+  transform: translateY(-1px);
+}
+
+.toolActivity {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.toolBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+}
+
+.toolRunning {
+  background: rgba(74, 222, 128, 0.1);
+  color: var(--green);
+  border: 1px solid rgba(74, 222, 128, 0.3);
+}
+
+.toolDone {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.toolSpin {
+  animation: spin 1s linear infinite;
+}
+
 .message {
   display: flex;
   gap: 12px;
@@ -136,23 +199,50 @@
   to { transform: rotate(360deg); }
 }
 
-.thinking {
-  font-size: 13px;
-  color: var(--text-muted);
-  font-style: italic;
+/* Refined thinking animation (from klaus.codes) */
+.thinkingTextOnly {
+  padding: 8px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.thinkingTextOnly::before {
+  content: '';
   display: inline-block;
-  min-width: 180px;
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  width: 6px;
+  height: 6px;
+  background: var(--green);
+  border-radius: 50%;
+  animation: thinkingDotPulse 0.6s ease-in-out infinite;
+  box-shadow: 0 0 6px rgba(74, 222, 128, 0.5);
 }
 
-.fadeIn {
-  opacity: 1;
-  transform: translateY(0);
+@keyframes thinkingDotPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.3); opacity: 0.7; }
 }
 
-.fadeOut {
-  opacity: 0;
-  transform: translateY(4px);
+.thinkingText {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  background: linear-gradient(90deg, var(--green), #a3e635, var(--green));
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: klausTextFade 0.3s ease-out, shimmer 2s linear infinite;
+}
+
+@keyframes klausTextFade {
+  from { opacity: 0.5; transform: translateY(2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 .inputArea {
@@ -290,8 +380,7 @@
     font-size: 13px;
   }
 
-  .thinking {
-    min-width: 140px;
-    font-size: 12px;
+  .thinkingText {
+    font-size: 13px;
   }
 }
