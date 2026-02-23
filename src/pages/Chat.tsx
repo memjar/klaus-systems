@@ -119,7 +119,7 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
     try {
       const res = await fetch(`${apiUrl}/klaus/imi/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
         body: JSON.stringify({
           message: msg,
           history: messages,
@@ -202,7 +202,7 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
             : /awareness/i.test(msg) ? 'awareness' : 'nps_comparison'
           const chartRes = await fetch(`${apiUrl}/klaus/imi/visualize`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
             body: JSON.stringify({ type: chartType }),
           })
           if (chartRes.ok) {
