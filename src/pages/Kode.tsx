@@ -453,14 +453,15 @@ export default function Kode({ apiUrl }: { apiUrl: string }) {
           <span className={styles.sidebarLabel}>Quick Actions</span>
           <div className={styles.suggestions}>
             {[
-              { label: 'Brand Health Summary', prompt: 'Give me a brand health summary across all loaded datasets' },
-              { label: 'Top Anomalies', prompt: 'What are the top anomalies and outliers in the data?' },
-              { label: 'Key Demographics', prompt: 'Break down the key demographic segments and their differences' },
-              { label: 'Competitive Analysis', prompt: 'Compare brand performance against competitors in the data' },
-              { label: 'Trend Insights', prompt: 'What trends or patterns are emerging from the survey data?' },
-              { label: 'NPS / Satisfaction', prompt: 'Analyze NPS scores and satisfaction metrics across segments' },
-              { label: 'Generate Report', prompt: 'Generate a comprehensive research report from the loaded data' },
-              { label: 'Cross-Tab Analysis', prompt: 'Run cross-tabulation analysis on key variables' },
+              { label: 'Pinpoint Discovery', prompt: 'Run an IMI Pinpoint Discovery analysis: identify the most valuable audience, best connection channels, key messaging, and where to maximize impact' },
+              { label: 'Brand Equity Scorecard', prompt: 'Generate a brand equity scorecard with aided/unaided awareness, consideration, preference, and purchase intent across all segments' },
+              { label: 'Anomaly Detection', prompt: 'Detect anomalies and outliers across attitudinal, emotional, and behavioral dimensions in the data' },
+              { label: 'Concept Validation', prompt: 'Evaluate concept strength: appeal, relevance, uniqueness, and purchase intent with category benchmarking' },
+              { label: 'Shopper Path Analysis', prompt: 'Map the shopper path-to-purchase funnel: awareness → consideration → trial → repeat, with conversion rates at each stage' },
+              { label: 'Campaign ROI', prompt: 'Analyze campaign effectiveness and media ROI: which creative elements and channels drive the strongest attitudinal and behavioral shifts?' },
+              { label: 'Cross-Tab Deep Dive', prompt: 'Run cross-tabulation on key demographic and psychographic variables to uncover hidden segment differences' },
+              { label: 'Passion Point Map', prompt: 'Map consumer passion points and emotional drivers to brand affinity — which lifestyle interests correlate with brand preference?' },
+              { label: 'Generate IMI Report', prompt: 'Generate a comprehensive IMI-style report with executive summary, key findings, segment profiles, and strategic recommendations' },
             ].map(s => (
               <button
                 key={s.label}
