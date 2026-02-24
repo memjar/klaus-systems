@@ -33,7 +33,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       localStorage.setItem('klaus_user', selectedUser)
       const res = await fetch(OBSERVER_ENDPOINTS.START, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
         body: JSON.stringify({ user: selectedUser, source: 'klaus.systems' }),
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -41,7 +41,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
       pollRef.current = setInterval(async () => {
         try {
-          const check = await fetch(OBSERVER_ENDPOINTS.CHECK(data.session_id))
+          const check = await fetch(OBSERVER_ENDPOINTS.CHECK(data.session_id), { headers: { 'ngrok-skip-browser-warning': 'true' } })
           const result = await check.json()
           if (result.status === 'approved') {
             storeAuth(result.device_id || data.session_id)
