@@ -38,12 +38,13 @@ export default function Kode({ apiUrl }: { apiUrl: string }) {
     try {
       const res = await fetch(`${apiUrl}/klaus/imi/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
         body: JSON.stringify({
           message: msg,
           history: messages.filter(m => m.role !== 'system'),
           agent: 'klaus-imi',
           use_tools: true,
+          prefer_speed: true,
         }),
       })
 
@@ -99,7 +100,7 @@ export default function Kode({ apiUrl }: { apiUrl: string }) {
               })
             } else {
               // Legacy Ollama format
-              const token = parsed.message?.content || ''
+              const token = (parsed.message?.content || '').replace(/<\/?think>/g, '')
               if (token) {
                 fullContent += token
                 const content = fullContent

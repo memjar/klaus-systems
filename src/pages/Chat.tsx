@@ -59,13 +59,95 @@ interface ToolActivity {
 interface Message {
   role: 'user' | 'assistant'
   content: string
-  chart?: ChartData
+  charts?: ChartData[]
   responseTime?: number
   tools?: ToolActivity[]
   thinking?: string
 }
 
 const CHART_COLORS = ['#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd', '#818cf8', '#4f46e5', '#7c3aed', '#5b21b6']
+
+function parseMarkdownTables(content: string): ChartData[] {
+  const charts: ChartData[] = []
+  // Split content into lines, find table blocks
+  const lines = content.split('\n')
+
+  let i = 0
+  while (i < lines.length) {
+    // Look for header row: | col | col | ... |
+    const headerMatch = lines[i]?.match(/^\|(.+)\|$/)
+    if (!headerMatch) { i++; continue }
+
+    // Next line must be separator: |---|---|
+    const sepLine = lines[i + 1]
+    if (!sepLine || !/^\|[\s:_-]+(\|[\s:_-]+)+\|$/.test(sepLine)) { i++; continue }
+
+    const headers = headerMatch[1].split('|').map(h => h.trim()).filter(Boolean)
+    const dataRows: Record<string, unknown>[] = []
+    let j = i + 2
+    while (j < lines.length) {
+      const rowMatch = lines[j]?.match(/^\|(.+)\|$/)
+      if (!rowMatch) break
+      const cells = rowMatch[1].split('|').map(c => c.trim())
+      if (cells.length >= headers.length) {
+        const row: Record<string, unknown> = {}
+        headers.forEach((h, idx) => {
+          const raw = (cells[idx] || '').replace(/\*\*/g, '').replace(/[$,%]/g, '').replace(/,/g, '').trim()
+          const num = parseFloat(raw)
+          row[h] = isNaN(num) ? cells[idx]?.replace(/\*\*/g, '').trim() : num
+        })
+        dataRows.push(row)
+      }
+      j++
+    }
+
+    if (dataRows.length < 2) { i = j; continue }
+
+    // Detect numeric columns
+    const numericCols = headers.filter(h =>
+      dataRows.every(r => typeof r[h] === 'number')
+    )
+    if (numericCols.length === 0) { i = j; continue }
+
+    // Find nearest heading above for title
+    let title = 'Data'
+    for (let k = i - 1; k >= 0; k--) {
+      const headingMatch = lines[k]?.match(/^#{1,4}\s+(.+)/)
+      if (headingMatch) { title = headingMatch[1]; break }
+    }
+
+    // Decide chart type: pie if 2 cols and values sum ~100
+    const labelCol = headers.find(h => !numericCols.includes(h)) || headers[0]
+    if (numericCols.length === 1 && headers.length === 2) {
+      const sum = dataRows.reduce((s, r) => s + (r[numericCols[0]] as number), 0)
+      if (sum > 90 && sum < 110) {
+        charts.push({
+          chart: 'pie',
+          title,
+          data: dataRows.map(r => ({ name: String(r[labelCol]), value: r[numericCols[0]] })),
+        })
+        i = j; continue
+      }
+    }
+
+    // Default: bar chart
+    charts.push({
+      chart: 'bar',
+      title,
+      data: dataRows.map(r => {
+        const d: Record<string, unknown> = { name: String(r[labelCol]) }
+        numericCols.forEach(k => { d[k] = r[k] })
+        return d
+      }),
+      xKey: 'name',
+      yKeys: numericCols,
+    })
+
+    i = j
+  }
+
+  return charts
+}
 
 function InlineChart({ chart }: { chart: ChartData }) {
   return (
@@ -232,28 +314,12 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
       const elapsed = Date.now() - startTime
       updateLast({ responseTime: elapsed })
 
-      // Auto-detect if we should show a chart
-      const chartKeywords = /\b(nps|brand|market share|awareness|competitive|benchmark)\b/i
-      if (fullContent && chartKeywords.test(msg)) {
-        try {
-          const chartType = /market.?share/i.test(msg) ? 'market_share'
-            : /awareness/i.test(msg) ? 'awareness' : 'nps_comparison'
-          const chartRes = await fetch(`${apiUrl}/klaus/imi/visualize`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
-            body: JSON.stringify({ type: chartType }),
-          })
-          if (chartRes.ok) {
-            const chartData = await chartRes.json() as ChartData
-            if (chartData.data?.length) {
-              setMessages(prev => {
-                const updated = [...prev]
-                updated[updated.length - 1] = { ...updated[updated.length - 1], chart: chartData }
-                return updated
-              })
-            }
-          }
-        } catch { /* chart is optional enhancement */ }
+      // Auto-generate charts from markdown tables in the response
+      if (fullContent) {
+        const charts = parseMarkdownTables(fullContent)
+        if (charts.length > 0) {
+          updateLast({ charts })
+        }
       }
 
       // If we got no content at all, show error
@@ -333,7 +399,7 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
               <div className={styles.content}>
                 <MarkdownContent content={msg.content} responseTime={msg.responseTime} />
               </div>
-              {msg.chart && <InlineChart chart={msg.chart} />}
+              {msg.charts?.map((c, ci) => <InlineChart key={ci} chart={c} />)}
             </div>
           </div>
         ))}
