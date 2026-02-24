@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
-import { Play, Upload, Loader2, Download, Table2, Trash2 } from 'lucide-react'
+import { Play, Upload, Loader2, Download, Table2, Trash2, MessageSquare, FileText } from 'lucide-react'
+import * as duckdb from '@duckdb/duckdb-wasm'
 import styles from './DuckDB.module.css'
 
 interface TableInfo {
@@ -15,36 +16,37 @@ interface QueryResult {
   error?: string
 }
 
-export default function DuckDB({ apiUrl: _apiUrl }: { apiUrl: string }) {
-  const [db, setDb] = useState<unknown>(null)
+export default function DuckDB({ apiUrl }: { apiUrl: string }) {
+  const [db, setDb] = useState<duckdb.AsyncDuckDB | null>(null)
   const [tables, setTables] = useState<TableInfo[]>([])
   const [sql, setSql] = useState("SELECT 'Hello DuckDB' AS greeting, 42 AS answer;")
   const [result, setResult] = useState<QueryResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [dbLoading, setDbLoading] = useState(true)
   const [error, setError] = useState('')
+  const [analyzing, setAnalyzing] = useState(false)
+  const [analysis, setAnalysis] = useState('')
+  const [generatingPdf, setGeneratingPdf] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
-  const connRef = useRef<unknown>(null)
+  const connRef = useRef<duckdb.AsyncDuckDBConnection | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  // Load DuckDB WASM
+  // Load DuckDB WASM from npm package
   useEffect(() => {
     let cancelled = false
     async function initDB() {
       try {
-        // @ts-expect-error - dynamic import of duckdb-wasm from CDN
-        const duckdb = await import('https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.0/+esm')
-        const JSDELIVR_BUNDLES = {
+        const BUNDLES = {
           mvp: {
-            mainModule: 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.0/dist/duckdb-mvp.wasm',
-            mainWorker: 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.0/dist/duckdb-browser-mvp.worker.js',
+            mainModule: '/duckdb-mvp.wasm',
+            mainWorker: new URL('@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js', import.meta.url).href,
           },
           eh: {
-            mainModule: 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.0/dist/duckdb-eh.wasm',
-            mainWorker: 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.0/dist/duckdb-browser-eh.worker.js',
+            mainModule: '/duckdb-eh.wasm',
+            mainWorker: new URL('@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js', import.meta.url).href,
           },
         }
-        const bundle = await duckdb.selectBundle(JSDELIVR_BUNDLES)
+        const bundle = await duckdb.selectBundle(BUNDLES)
         const worker = new Worker(bundle.mainWorker!)
         const logger = new duckdb.ConsoleLogger()
         const instance = new duckdb.AsyncDuckDB(logger, worker)
@@ -72,9 +74,9 @@ export default function DuckDB({ apiUrl: _apiUrl }: { apiUrl: string }) {
     setLoading(true)
     setError('')
     setResult(null)
+    setAnalysis('')
     const start = performance.now()
     try {
-      // @ts-expect-error - duckdb conn.query returns arrow table
       const arrowResult = await connRef.current.query(q)
       const elapsed = performance.now() - start
       const columns = arrowResult.schema.fields.map((f: { name: string }) => f.name)
@@ -100,7 +102,6 @@ export default function DuckDB({ apiUrl: _apiUrl }: { apiUrl: string }) {
   const refreshTables = async () => {
     if (!connRef.current) return
     try {
-      // @ts-expect-error - duckdb conn
       const res = await connRef.current.query("SELECT table_name FROM information_schema.tables WHERE table_schema='main'")
       const tableNames: string[] = []
       for (let i = 0; i < res.numRows; i++) {
@@ -109,10 +110,8 @@ export default function DuckDB({ apiUrl: _apiUrl }: { apiUrl: string }) {
       const infos: TableInfo[] = []
       for (const name of tableNames) {
         try {
-          // @ts-expect-error - duckdb conn
           const countRes = await connRef.current.query(`SELECT count(*) as c FROM "${name}"`)
           const count = Number(countRes.getChild('c')?.get(0) || 0)
-          // @ts-expect-error - duckdb conn
           const colRes = await connRef.current.query(`SELECT column_name FROM information_schema.columns WHERE table_name='${name}'`)
           const cols: string[] = []
           for (let j = 0; j < colRes.numRows; j++) cols.push(String(colRes.getChild('column_name')?.get(j)))
@@ -132,7 +131,6 @@ export default function DuckDB({ apiUrl: _apiUrl }: { apiUrl: string }) {
       const ext = file.name.split('.').pop()?.toLowerCase()
       const tableName = file.name.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase()
       const buffer = await file.arrayBuffer()
-      // @ts-expect-error - duckdb instance
       await db.registerFileBuffer(file.name, new Uint8Array(buffer))
 
       if (ext === 'csv') {
@@ -173,6 +171,91 @@ export default function DuckDB({ apiUrl: _apiUrl }: { apiUrl: string }) {
     a.click()
   }
 
+  // Send results to Klaus for analysis
+  const askKlaus = async () => {
+    if (!result || result.rows.length === 0) return
+    setAnalyzing(true)
+    setAnalysis('')
+    try {
+      // Build a summary of the data for Klaus
+      const sampleRows = result.rows.slice(0, 20)
+      const csvSample = [
+        result.columns.join(','),
+        ...sampleRows.map(r => result.columns.map(c => String(r[c] ?? '')).join(','))
+      ].join('\n')
+
+      const prompt = `Analyze this query result data. The SQL query was: ${sql}\n\nColumns: ${result.columns.join(', ')}\nTotal rows: ${result.rows.length}\n\nSample data (first ${sampleRows.length} rows):\n${csvSample}\n\nProvide:\n1. A summary of what this data shows\n2. Key patterns or insights\n3. Any anomalies or notable values\n4. Suggested follow-up queries for deeper analysis`
+
+      const resp = await fetch(`${apiUrl}/klaus/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: prompt, stream: false })
+      })
+
+      if (!resp.ok) throw new Error(`Klaus returned ${resp.status}`)
+
+      const data = await resp.json()
+      setAnalysis(data.response || data.message || JSON.stringify(data))
+    } catch (err) {
+      setAnalysis(`Failed to reach Klaus: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setAnalyzing(false)
+    }
+  }
+
+  // Generate PDF report from results
+  const generateReport = async () => {
+    if (!result || result.rows.length === 0) return
+    setGeneratingPdf(true)
+    try {
+      // Build markdown content for the report
+      const tableRows = result.rows.slice(0, 100)
+      const tableHeader = '| ' + result.columns.join(' | ') + ' |'
+      const tableSep = '| ' + result.columns.map(() => '---').join(' | ') + ' |'
+      const tableBody = tableRows.map(r =>
+        '| ' + result.columns.map(c => String(r[c] ?? '')).join(' | ') + ' |'
+      ).join('\n')
+      const tableMarkdown = [tableHeader, tableSep, tableBody].join('\n')
+
+      const content = [
+        `## Query`,
+        '```sql',
+        sql,
+        '```',
+        `## Results Summary`,
+        `- **Rows returned:** ${result.rows.length}`,
+        `- **Columns:** ${result.columns.join(', ')}`,
+        `- **Query time:** ${result.time.toFixed(1)}ms`,
+        analysis ? `## Klaus Analysis\n${analysis}` : '',
+        `## Data`,
+        tableMarkdown,
+      ].filter(Boolean).join('\n\n')
+
+      const resp = await fetch(`${apiUrl}/klaus/imi/generate-document`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content,
+          title: 'DuckDB Query Report',
+          format: 'pdf'
+        })
+      })
+
+      if (!resp.ok) throw new Error(`Report generation failed: ${resp.status}`)
+
+      const data = await resp.json()
+      // Download the PDF
+      const a = document.createElement('a')
+      a.href = `${apiUrl}/klaus/imi/document/${data.doc_id}?format=pdf`
+      a.download = 'klaus-duckdb-report.pdf'
+      a.click()
+    } catch (err) {
+      setError(`Report generation failed: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setGeneratingPdf(false)
+    }
+  }
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault()
@@ -198,7 +281,7 @@ export default function DuckDB({ apiUrl: _apiUrl }: { apiUrl: string }) {
             <button className={styles.dropBtn} onClick={(e) => { e.stopPropagation(); dropTable(t.name) }} title="Drop table"><Trash2 size={12} /></button>
           </div>
         ))}
-        <input ref={fileRef} type="file" accept=".csv,.json,.jsonl,.parquet" onChange={handleFileUpload} style={{ display: 'none' }} />
+        <input ref={fileRef} type="file" accept=".csv,.json,.jsonl,.parquet,.xlsx" onChange={handleFileUpload} style={{ display: 'none' }} />
         <button className={styles.uploadBtn} onClick={() => fileRef.current?.click()} disabled={dbLoading}>
           <Upload size={14} /> Import File
         </button>
@@ -207,7 +290,7 @@ export default function DuckDB({ apiUrl: _apiUrl }: { apiUrl: string }) {
       <div className={styles.main}>
         <div className={styles.header}>
           <h1>DuckDB</h1>
-          <p>In-browser analytical SQL — no server required. Import CSV, JSON, or Parquet files.</p>
+          <p>In-browser analytical SQL — import CSV, JSON, or Parquet files. Ask Klaus to analyze results or generate PDF reports.</p>
         </div>
 
         <div className={styles.editorSection}>
@@ -227,9 +310,19 @@ export default function DuckDB({ apiUrl: _apiUrl }: { apiUrl: string }) {
               Run {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+Enter
             </button>
             {result && result.rows.length > 0 && (
-              <button className={styles.exportBtn} onClick={exportCSV}>
-                <Download size={14} /> Export CSV
-              </button>
+              <>
+                <button className={styles.exportBtn} onClick={exportCSV}>
+                  <Download size={14} /> Export CSV
+                </button>
+                <button className={styles.klausBtn} onClick={askKlaus} disabled={analyzing}>
+                  {analyzing ? <Loader2 size={14} className={styles.spin} /> : <MessageSquare size={14} />}
+                  Ask Klaus
+                </button>
+                <button className={styles.reportBtn} onClick={generateReport} disabled={generatingPdf}>
+                  {generatingPdf ? <Loader2 size={14} className={styles.spin} /> : <FileText size={14} />}
+                  PDF Report
+                </button>
+              </>
             )}
             <div className={styles.editorSpacer} />
             <div className={styles.suggestions}>
@@ -241,6 +334,15 @@ export default function DuckDB({ apiUrl: _apiUrl }: { apiUrl: string }) {
         </div>
 
         {error && <div className={styles.error}>{error}</div>}
+
+        {analysis && (
+          <div className={styles.analysisSection}>
+            <div className={styles.analysisHeader}>
+              <MessageSquare size={14} /> Klaus Analysis
+            </div>
+            <div className={styles.analysisBody}>{analysis}</div>
+          </div>
+        )}
 
         {result && !result.error && (
           <div className={styles.resultsSection}>
