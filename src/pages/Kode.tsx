@@ -264,6 +264,27 @@ export default function Kode({ apiUrl }: { apiUrl: string }) {
               {msg.responseTime && (
                 <span className={styles.time}>{(msg.responseTime / 1000).toFixed(1)}s</span>
               )}
+              {msg.content.includes('uploaded') && msg.content.includes('respondents') && i === messages.length - 1 && !loading && (
+                <div className={styles.postUploadActions}>
+                  <p className={styles.postUploadLabel}>What would you like to do?</p>
+                  <div className={styles.postUploadGrid}>
+                    {[
+                      { label: 'Summarize Key Findings', prompt: 'Give me a summary of the key findings from this survey — top-line results, notable patterns, and anything surprising.' },
+                      { label: 'Break Down by Segment', prompt: 'Break down the results by demographic segments (age, gender, region). Show me where the biggest differences are.' },
+                      { label: 'Compare with Benchmarks', prompt: 'Compare these results against industry benchmarks or our other datasets. Where do we over/under-index?' },
+                      { label: 'Generate Client Report', prompt: 'Generate a client-ready executive summary of this data with key insights, charts, and recommended actions.' },
+                    ].map(action => (
+                      <button
+                        key={action.label}
+                        className={styles.postUploadBtn}
+                        onClick={() => { setInput(action.prompt); setTimeout(() => inputRef.current?.focus(), 50) }}
+                      >
+                        {action.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         ))}
