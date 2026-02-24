@@ -422,6 +422,67 @@
   flex-shrink: 0;
 }
 
+/* ── User Selector ────────────────────────────────────── */
+.userSelector {
+  padding: 0 40px;
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.userLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #555;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.userToggle {
+  display: flex;
+  gap: 0;
+  border: 1px solid #1a1a1a;
+  border-radius: 8px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.userBtn {
+  flex: 1;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  color: #555;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.userBtn:first-child {
+  border-right: 1px solid #1a1a1a;
+}
+
+.userBtn:hover {
+  color: #888;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.userBtnActive {
+  background: rgba(0, 255, 65, 0.08);
+  color: #00ff41;
+  text-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
+}
+
+.userBtnActive:hover {
+  color: #00ff41;
+  background: rgba(0, 255, 65, 0.1);
+}
+
 /* ── Footer ────────────────────────────────────────────── */
 .footer {
   display: flex;

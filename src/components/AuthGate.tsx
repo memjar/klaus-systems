@@ -12,6 +12,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const [accessCode, setAccessCode] = useState('')
   const [accessError, setAccessError] = useState('')
   const [showFallback, setShowFallback] = useState(false)
+  const [selectedUser, setSelectedUser] = useState<string>(localStorage.getItem('klaus_user') || '')
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
@@ -23,8 +24,13 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   }, [])
 
   const requestAccess = useCallback(async () => {
+    if (!selectedUser) {
+      setAccessError('SELECT A USER PROFILE')
+      return
+    }
     try {
       setStatus('waiting')
+      localStorage.setItem('klaus_user', selectedUser)
       const res = await fetch(OBSERVER_ENDPOINTS.START, { method: 'POST' })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
@@ -60,8 +66,13 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   const handleAccessCode = (e: React.FormEvent) => {
     e.preventDefault()
+    if (!selectedUser) {
+      setAccessError('SELECT A USER PROFILE')
+      return
+    }
     if (accessCode.trim() === 'vaultkey') {
       localStorage.setItem('klaus_auth', accessCode.trim())
+      localStorage.setItem('klaus_user', selectedUser)
       setStatus('approved')
     } else {
       setAccessError('ACCESS DENIED')
@@ -117,6 +128,27 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             {status === 'error' && 'CONNECTION FAILED'}
           </span>
         </div>
+
+        {/* User selector */}
+        {(status === 'idle') && (
+          <div className={styles.userSelector}>
+            <span className={styles.userLabel}>SESSION PROFILE</span>
+            <div className={styles.userToggle}>
+              <button
+                className={`${styles.userBtn} ${selectedUser === 'james' ? styles.userBtnActive : ''}`}
+                onClick={() => { setSelectedUser('james'); setAccessError('') }}
+              >
+                James
+              </button>
+              <button
+                className={`${styles.userBtn} ${selectedUser === 'mike' ? styles.userBtnActive : ''}`}
+                onClick={() => { setSelectedUser('mike'); setAccessError('') }}
+              >
+                Mike
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Main content */}
         <div className={styles.body}>

@@ -72,9 +72,9 @@ export default function Layout({ apiUrl: _apiUrl }: { apiUrl: string }) {
         <div className={styles.footer}>
           <div className={styles.status}>
             <span className={styles.dot} />
-            <span className={styles.statusText}>Klaus AI</span>
+            <span className={styles.statusText}>{localStorage.getItem('klaus_user') ? `${localStorage.getItem('klaus_user')?.charAt(0).toUpperCase()}${localStorage.getItem('klaus_user')?.slice(1)}` : 'Klaus AI'}</span>
           </div>
-          <a href="/login" className={styles.link}>
+          <a href="#" className={styles.link} onClick={(e) => { e.preventDefault(); localStorage.removeItem('klaus_auth'); localStorage.removeItem('klaus_user'); localStorage.removeItem('observer_device_id'); localStorage.removeItem('observer_auth_expiry'); window.location.reload() }}>
             <LogOut size={18} />
             <span>Logout</span>
           </a>

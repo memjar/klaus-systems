@@ -255,8 +255,10 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
   const [loading, setLoading] = useState(false)
   const [uploadedFile, setUploadedFile] = useState<string | null>(null)
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
+  const klausUser = localStorage.getItem('klaus_user') || 'default'
+  const briefingKey = `klaus_briefing_${klausUser}`
   const [briefing, setBriefing] = useState<Briefing | null>(() => {
-    try { const b = localStorage.getItem('klaus_briefing'); return b ? JSON.parse(b) : null } catch { return null }
+    try { const b = localStorage.getItem(briefingKey); return b ? JSON.parse(b) : null } catch { return null }
   })
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -266,7 +268,7 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
   useEffect(() => {
     const save = () => {
       const b = generateBriefing(messages)
-      if (b) localStorage.setItem('klaus_briefing', JSON.stringify(b))
+      if (b) localStorage.setItem(briefingKey, JSON.stringify(b))
     }
     window.addEventListener('beforeunload', save)
     return () => window.removeEventListener('beforeunload', save)
@@ -274,7 +276,7 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
 
   useEffect(() => {
     const b = generateBriefing(messages)
-    if (b) localStorage.setItem('klaus_briefing', JSON.stringify(b))
+    if (b) localStorage.setItem(briefingKey, JSON.stringify(b))
   }, [messages])
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -460,8 +462,8 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
                 <div className={styles.briefingLine}><span className={styles.briefingLabel}>Klaus found:</span> {briefing.whatYouFound}</div>
                 <div className={styles.briefingLine}><span className={styles.briefingLabel}>Next up:</span> {briefing.whereGoing}</div>
                 <div className={styles.briefingActions}>
-                  <button className={styles.continueBtn} onClick={() => { setMessages(briefing.lastMessages); setBriefing(null); localStorage.removeItem('klaus_briefing') }}>Continue</button>
-                  <button className={styles.newBtn} onClick={() => { setBriefing(null); localStorage.removeItem('klaus_briefing') }}>Something new</button>
+                  <button className={styles.continueBtn} onClick={() => { setMessages(briefing.lastMessages); setBriefing(null); localStorage.removeItem(briefingKey) }}>Continue</button>
+                  <button className={styles.newBtn} onClick={() => { setBriefing(null); localStorage.removeItem(briefingKey) }}>Something new</button>
                 </div>
               </div>
             </div>
