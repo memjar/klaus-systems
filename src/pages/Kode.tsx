@@ -1,18 +1,52 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Loader2, Plus } from 'lucide-react'
+import { Send, Loader2, Plus, Terminal } from 'lucide-react'
+import MarkdownContent from '../components/MarkdownContent'
 import styles from './Kode.module.css'
 
+const THINKING_MESSAGES = [
+  'Thinking...',
+  'On it...',
+  'Working...',
+  'Processing...',
+  'Analyzing...',
+]
+
+function ThinkingAnimation() {
+  const [phase, setPhase] = useState(0)
+  const [dots, setDots] = useState('')
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPhase(p => (p + 1) % THINKING_MESSAGES.length)
+    }, 600)
+    return () => clearInterval(interval)
+  }, [])
+
+  useEffect(() => {
+    const dotInterval = setInterval(() => {
+      setDots(d => d.length >= 3 ? '' : d + '.')
+    }, 300)
+    return () => clearInterval(dotInterval)
+  }, [])
+
+  const baseMessage = THINKING_MESSAGES[phase].replace(/\.+$/, '')
+
+  return (
+    <div className={styles.thinkingTextOnly}>
+      <span className={styles.thinkingText}>{baseMessage}{dots}</span>
+    </div>
+  )
+}
+
 interface KodeMessage {
-  role: 'user' | 'assistant' | 'system'
+  role: 'user' | 'assistant'
   content: string
   toolEvents?: { type: string; tool: string; preview?: string }[]
   responseTime?: number
 }
 
 export default function Kode({ apiUrl }: { apiUrl: string }) {
-  const [messages, setMessages] = useState<KodeMessage[]>([
-    { role: 'system', content: '> Klaus Terminal v2.0 — Connected to Qwen 32B\n> Type a command or question. Full tool access enabled.' }
-  ])
+  const [messages, setMessages] = useState<KodeMessage[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [uploadedFile, setUploadedFile] = useState<string | null>(null)
@@ -49,7 +83,7 @@ export default function Kode({ apiUrl }: { apiUrl: string }) {
       setUploadedFile(data.survey_name)
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: `${data.survey_name} uploaded — ${data.total_n} respondents, ${data.questions_found} questions, format: ${data.format}\nYou can now ask questions about this data.`
+        content: `**${data.survey_name}** uploaded — ${data.total_n} respondents, ${data.questions_found} questions, format: ${data.format}\n\nYou can now ask questions about this data.`
       }])
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Upload failed'
@@ -76,7 +110,7 @@ export default function Kode({ apiUrl }: { apiUrl: string }) {
         headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
         body: JSON.stringify({
           message: uploadedFile ? `[Context: user uploaded survey "${uploadedFile}"]\n${msg}` : msg,
-          history: messages.filter(m => m.role !== 'system'),
+          history: messages,
           agent: 'klaus-imi',
           use_tools: true,
           prefer_speed: true,
@@ -105,7 +139,6 @@ export default function Kode({ apiUrl }: { apiUrl: string }) {
           try {
             const parsed = JSON.parse(line)
 
-            // Handle agent loop streaming events
             if (parsed.type === 'tool_start') {
               toolEvents.push({ type: 'start', tool: parsed.tool })
               const content = fullContent
@@ -179,40 +212,68 @@ export default function Kode({ apiUrl }: { apiUrl: string }) {
     sendMessage()
   }
 
+  const isThinking = loading && messages.length > 0 &&
+    messages[messages.length - 1]?.role === 'assistant' &&
+    !messages[messages.length - 1]?.content &&
+    (!messages[messages.length - 1]?.toolEvents || messages[messages.length - 1]?.toolEvents?.length === 0)
+
   return (
     <div className={styles.container}>
-      <div className={styles.terminal}>
+      <div className={styles.messages}>
+        {messages.length === 0 && (
+          <div className={styles.empty}>
+            <div className={styles.emptyIcon}><Terminal size={40} /></div>
+            <h2>Klaus Kode</h2>
+            <p>Research-grade AI terminal. Upload datasets, run analysis, ask anything about your IMI survey data.</p>
+            <div className={styles.suggestions}>
+              {['What datasets are available?', 'Summarize brand health trends', 'Compare GenZ vs Boomers', 'Show sponsorship ROI'].map(s => (
+                <button key={s} className={styles.suggestion} onClick={() => { setInput(s); inputRef.current?.focus() }}>{s}</button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {messages.map((msg, i) => (
-          <div key={i} className={`${styles.line} ${styles[msg.role]}`}>
-            {msg.role === 'user' && <span className={styles.prompt}>$</span>}
-            {msg.role === 'assistant' && <span className={styles.prompt}>K</span>}
-            <div className={styles.content}>
+          <div key={i} className={`${styles.message} ${styles[msg.role]}`}>
+            <div className={styles.avatar}>
+              {msg.role === 'user' ? 'J' : 'K'}
+            </div>
+            <div className={styles.bubble}>
               {msg.toolEvents && msg.toolEvents.length > 0 && (
-                <div className={styles.tools}>
+                <div className={styles.toolActivity}>
                   {msg.toolEvents.map((ev, j) => (
-                    <div key={j} className={styles.toolEvent}>
-                      <span className={styles.toolIcon}>{ev.type === 'start' ? '⚙' : '✓'}</span>
-                      <span className={styles.toolName}>{ev.tool}</span>
-                      {ev.preview && <span className={styles.toolPreview}>{ev.preview.slice(0, 80)}</span>}
-                    </div>
+                    <span key={j} className={`${styles.toolBadge} ${ev.type === 'start' ? styles.toolRunning : styles.toolDone}`}>
+                      {ev.type === 'start' ? <Loader2 size={10} className={styles.toolSpin} /> : <span>&#10003;</span>}
+                      {ev.tool}
+                    </span>
                   ))}
                 </div>
               )}
-              <pre className={styles.text}>{msg.content}</pre>
+              <div className={styles.content}>
+                {msg.role === 'assistant'
+                  ? <MarkdownContent content={msg.content} />
+                  : msg.content
+                }
+              </div>
               {msg.responseTime && (
                 <span className={styles.time}>{(msg.responseTime / 1000).toFixed(1)}s</span>
               )}
             </div>
           </div>
         ))}
-        {loading && messages[messages.length - 1]?.content === '' && messages[messages.length - 1]?.toolEvents?.length === 0 && (
-          <div className={`${styles.line} ${styles.assistant}`}>
-            <span className={styles.prompt}>K</span>
-            <Loader2 size={14} className={styles.spinner} />
+
+        {isThinking && (
+          <div className={`${styles.message} ${styles.assistant}`}>
+            <div className={styles.avatar}>K</div>
+            <div className={styles.bubble}>
+              <ThinkingAnimation />
+            </div>
           </div>
         )}
+
         <div ref={bottomRef} />
       </div>
+
       <form onSubmit={handleSubmit} className={styles.inputArea}>
         <input
           ref={fileInputRef}
@@ -221,20 +282,20 @@ export default function Kode({ apiUrl }: { apiUrl: string }) {
           onChange={handleFileUpload}
           style={{ display: 'none' }}
         />
-        <button type="button" className={styles.attachBtn} title="Add file context (.xlsx, .csv, .json)" onClick={() => fileInputRef.current?.click()} disabled={loading}>
+        <button type="button" className={styles.attachBtn} title="Upload dataset" onClick={() => fileInputRef.current?.click()} disabled={loading}>
           <Plus size={16} />
         </button>
         <input
           ref={inputRef}
           value={input}
           onChange={e => setInput(e.target.value)}
-          placeholder="Enter command or question..."
+          placeholder="Ask Klaus anything..."
           className={styles.input}
           disabled={loading}
           autoFocus
         />
         <button type="submit" className={styles.sendBtn} disabled={loading || !input.trim()}>
-          <Send size={16} />
+          {loading ? <Loader2 size={16} className={styles.spinner} /> : <Send size={16} />}
         </button>
       </form>
     </div>
