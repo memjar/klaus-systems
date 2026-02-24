@@ -1,14 +1,24 @@
 import { useState, useCallback } from 'react'
-import { Outlet, NavLink, useLocation } from 'react-router-dom'
-import { MessageSquare, Terminal, LayoutDashboard, Database, Code2, Brain, FileBarChart, HardDrive, LogOut, Menu, X, SquarePen } from 'lucide-react'
+import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { MessageSquare, Terminal, LayoutDashboard, Database, Code2, Brain, FileBarChart, HardDrive, LogOut, Menu, X, SquarePen, Warehouse, Download, Bookmark, GitCompare, Shield, Share2 } from 'lucide-react'
 import styles from './Layout.module.css'
 
 export default function Layout({ apiUrl: _apiUrl }: { apiUrl: string }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const location = useLocation()
+  const navigate = useNavigate()
   const isChat = location.pathname === '/'
 
   const closeSidebar = useCallback(() => setSidebarOpen(false), [])
+
+  const handleNewChat = useCallback(() => {
+    if (isChat) {
+      window.dispatchEvent(new Event('klaus-new-chat'))
+    } else {
+      navigate('/')
+      setTimeout(() => window.dispatchEvent(new Event('klaus-new-chat')), 100)
+    }
+  }, [isChat, navigate])
 
   return (
     <div className={styles.container}>
@@ -17,26 +27,27 @@ export default function Layout({ apiUrl: _apiUrl }: { apiUrl: string }) {
         <button className={styles.menuBtn} onClick={() => setSidebarOpen(o => !o)} aria-label="Toggle menu">
           {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
-        <div className={styles.mobileTitle}>
+        <div className={styles.mobileTitle} onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
           <span className={styles.logoK}>K</span>
           <span className={styles.logoText}>KLAUS</span>
         </div>
-        {isChat ? (
-          <button className={styles.newChatBtn} onClick={() => window.dispatchEvent(new Event('klaus-new-chat'))} aria-label="New Chat">
-            <SquarePen size={18} />
-          </button>
-        ) : (
-          <div className={styles.mobileHeaderSpacer} />
-        )}
+        <button className={styles.newChatBtn} onClick={handleNewChat} aria-label="New Chat">
+          <SquarePen size={18} />
+        </button>
       </header>
 
       {/* Overlay for mobile */}
       {sidebarOpen && <div className={styles.overlay} onClick={closeSidebar} />}
 
       <nav className={`${styles.sidebar} ${sidebarOpen ? styles.sidebarOpen : ''}`}>
-        <div className={styles.logo}>
-          <span className={styles.logoK}>K</span>
-          <span className={styles.logoText}>KLAUS</span>
+        <div className={styles.logoRow}>
+          <div className={styles.logo} onClick={() => { closeSidebar(); navigate('/') }} style={{ cursor: 'pointer' }}>
+            <span className={styles.logoK}>K</span>
+            <span className={styles.logoText}>KLAUS</span>
+          </div>
+          <button className={styles.newChatSidebar} onClick={() => { closeSidebar(); handleNewChat() }} title="New Chat">
+            <SquarePen size={16} />
+          </button>
         </div>
         <div className={styles.nav}>
           <div className={styles.sectionLabel}>Core</div>
@@ -66,6 +77,10 @@ export default function Layout({ apiUrl: _apiUrl }: { apiUrl: string }) {
             <HardDrive size={18} />
             <span>DuckDB</span>
           </NavLink>
+          <NavLink to="/datasources" className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ''}`} onClick={closeSidebar}>
+            <Warehouse size={18} />
+            <span>Data Sources</span>
+          </NavLink>
 
           <div className={styles.sectionLabel}>Intelligence</div>
           <NavLink to="/insights" className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ''}`} onClick={closeSidebar}>
@@ -75,6 +90,28 @@ export default function Layout({ apiUrl: _apiUrl }: { apiUrl: string }) {
           <NavLink to="/reports" className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ''}`} onClick={closeSidebar}>
             <FileBarChart size={18} />
             <span>Reports</span>
+          </NavLink>
+          <NavLink to="/compare" className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ''}`} onClick={closeSidebar}>
+            <GitCompare size={18} />
+            <span>Compare</span>
+          </NavLink>
+          <NavLink to="/graph" className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ''}`} onClick={closeSidebar}>
+            <Share2 size={18} />
+            <span>Graph</span>
+          </NavLink>
+
+          <div className={styles.sectionLabel}>Tools</div>
+          <NavLink to="/exports" className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ''}`} onClick={closeSidebar}>
+            <Download size={18} />
+            <span>Exports</span>
+          </NavLink>
+          <NavLink to="/saved" className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ''}`} onClick={closeSidebar}>
+            <Bookmark size={18} />
+            <span>Saved Queries</span>
+          </NavLink>
+          <NavLink to="/audit" className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ''}`} onClick={closeSidebar}>
+            <Shield size={18} />
+            <span>Audit Log</span>
           </NavLink>
         </div>
         <div className={styles.footer}>

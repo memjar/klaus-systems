@@ -11,6 +11,12 @@ const SQLLab = lazy(() => import('./pages/SQLLab'))
 const Insights = lazy(() => import('./pages/Insights'))
 const Reports = lazy(() => import('./pages/Reports'))
 const DuckDB = lazy(() => import('./pages/DuckDB'))
+const DataSources = lazy(() => import('./pages/DataSources'))
+const Exports = lazy(() => import('./pages/Exports'))
+const SavedQueries = lazy(() => import('./pages/SavedQueries'))
+const Compare = lazy(() => import('./pages/Compare'))
+const AuditLog = lazy(() => import('./pages/AuditLog'))
+const Graph = lazy(() => import('./pages/Graph'))
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -28,6 +34,12 @@ function App() {
             <Route path="insights" element={<Insights apiUrl={API_URL} />} />
             <Route path="reports" element={<Reports apiUrl={API_URL} />} />
             <Route path="duckdb" element={<DuckDB apiUrl={API_URL} />} />
+            <Route path="datasources" element={<DataSources apiUrl={API_URL} />} />
+            <Route path="exports" element={<Exports apiUrl={API_URL} />} />
+            <Route path="saved" element={<SavedQueries apiUrl={API_URL} />} />
+            <Route path="compare" element={<Compare apiUrl={API_URL} />} />
+            <Route path="audit" element={<AuditLog apiUrl={API_URL} />} />
+            <Route path="graph" element={<Graph apiUrl={API_URL} />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

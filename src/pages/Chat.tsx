@@ -250,18 +250,25 @@ function timeAgo(iso: string): string {
 }
 
 export default function Chat({ apiUrl }: { apiUrl: string }) {
-  const [messages, setMessages] = useState<Message[]>(() => {
-    try { const m = localStorage.getItem(`klaus_messages_${localStorage.getItem('klaus_user') || 'default'}`); return m ? JSON.parse(m) : [] } catch { return [] }
+  const klausUser = localStorage.getItem('klaus_user') || 'default'
+  const briefingKey = `klaus_briefing_${klausUser}`
+  const messagesKey = `klaus_messages_${klausUser}`
+
+  // On mount: if saved messages exist, don't auto-load — show continuity popup instead
+  const [messages, setMessages] = useState<Message[]>([])
+  const [showContinuity, setShowContinuity] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem(`klaus_messages_${localStorage.getItem('klaus_user') || 'default'}`)
+      const parsed = saved ? JSON.parse(saved) : []
+      return parsed.length > 0
+    } catch { return false }
   })
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [uploadedFile, setUploadedFile] = useState<string | null>(null)
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
-  const klausUser = localStorage.getItem('klaus_user') || 'default'
-  const briefingKey = `klaus_briefing_${klausUser}`
-  const messagesKey = `klaus_messages_${klausUser}`
   const [briefing, setBriefing] = useState<Briefing | null>(() => {
-    try { const b = localStorage.getItem(briefingKey); return b ? JSON.parse(b) : null } catch { return null }
+    try { const b = localStorage.getItem(`klaus_briefing_${localStorage.getItem('klaus_user') || 'default'}`); return b ? JSON.parse(b) : null } catch { return null }
   })
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -327,6 +334,7 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
   useEffect(() => {
     const handleNewChat = () => {
       setMessages([])
+      setShowContinuity(false)
       localStorage.removeItem(messagesKey)
       localStorage.removeItem(briefingKey)
       setBriefing(null)
@@ -471,21 +479,28 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
   return (
     <div className={styles.container}>
       <div className={styles.messages}>
-        {messages.length === 0 && (
-          briefing ? (
+        {messages.length === 0 && showContinuity && (() => {
+          // Build briefing from saved messages for the popup
+          const saved = (() => { try { const m = localStorage.getItem(messagesKey); return m ? JSON.parse(m) as Message[] : [] } catch { return [] } })()
+          const b = briefing || generateBriefing(saved)
+          const lastUserMsg = [...saved].reverse().find(m => m.role === 'user')
+          const lastAssistantMsg = [...saved].reverse().find(m => m.role === 'assistant' && m.content)
+          return (
             <div className={styles.empty}>
               <div className={styles.briefing}>
-                <span className={styles.briefingDate}>{timeAgo(briefing.date)}</span>
-                <div className={styles.briefingLine}><span className={styles.briefingLabel}>You were exploring:</span> {briefing.whereYouWere}</div>
-                <div className={styles.briefingLine}><span className={styles.briefingLabel}>Klaus found:</span> {briefing.whatYouFound}</div>
-                <div className={styles.briefingLine}><span className={styles.briefingLabel}>Next up:</span> {briefing.whereGoing}</div>
+                <span className={styles.briefingDate}>{b ? timeAgo(b.date) : 'Previous session'}</span>
+                <div className={styles.briefingLine}><span className={styles.briefingLabel}>You asked:</span> {lastUserMsg?.content.slice(0, 140) || b?.whereYouWere || 'Unknown'}{(lastUserMsg?.content?.length || 0) > 140 ? '...' : ''}</div>
+                <div className={styles.briefingLine}><span className={styles.briefingLabel}>Klaus found:</span> {lastAssistantMsg?.content.slice(0, 140) || b?.whatYouFound || 'Unknown'}{(lastAssistantMsg?.content?.length || 0) > 140 ? '...' : ''}</div>
+                <div className={styles.briefingLine}><span className={styles.briefingLabel}>Messages:</span> {saved.length} in this session</div>
                 <div className={styles.briefingActions}>
-                  <button className={styles.continueBtn} onClick={() => { setMessages(briefing.lastMessages); setBriefing(null); localStorage.removeItem(briefingKey) }}>Continue</button>
-                  <button className={styles.newBtn} onClick={() => { setBriefing(null); localStorage.removeItem(briefingKey) }}>Something new</button>
+                  <button className={styles.continueBtn} onClick={() => { setMessages(saved); setShowContinuity(false); setBriefing(null) }}>Continue session</button>
+                  <button className={styles.newBtn} onClick={() => { setShowContinuity(false); setBriefing(null); localStorage.removeItem(messagesKey); localStorage.removeItem(briefingKey) }}>Start fresh</button>
                 </div>
               </div>
             </div>
-          ) : (
+          )
+        })()}
+        {messages.length === 0 && !showContinuity && (
             <div className={styles.empty}>
               <span className={styles.emptyK}>K</span>
               <h2>Klaus IMI Research Intelligence</h2>
