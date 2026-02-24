@@ -570,7 +570,11 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
         {!loading && messages.length > 0 && (() => {
           const last = messages[messages.length - 1]
           const isError = last.role === 'assistant' && (last.content.startsWith('Connection error') || last.content.startsWith('No response') || last.content.startsWith('❌'))
-          const isTruncated = last.role === 'assistant' && last.content.length > 800 && !last.content.trimEnd().endsWith('.') && !last.content.trimEnd().endsWith('!') && !last.content.trimEnd().endsWith('?') && !last.content.trimEnd().endsWith('```') && !last.content.trimEnd().endsWith('---')
+          const trimmed = last.role === 'assistant' ? last.content.trimEnd() : ''
+          const openCodeBlocks = (trimmed.match(/```/g) || []).length % 2 !== 0
+          const midSentence = trimmed.length > 200 && /[a-zA-Z,;:\-]$/.test(trimmed)
+          const midList = /^\s*[-*\d]+\.?\s*$/m.test(trimmed.split('\n').pop() || '')
+          const isTruncated = last.role === 'assistant' && trimmed.length > 400 && (openCodeBlocks || midSentence || midList)
           if (!isError && !isTruncated) return null
           return (
             <div className={styles.retryBar}>
