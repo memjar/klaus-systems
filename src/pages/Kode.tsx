@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Loader2, Plus, Terminal } from 'lucide-react'
+import { Send, Loader2, Plus, Terminal, Copy, BarChart3, FileDown } from 'lucide-react'
 import MarkdownContent from '../components/MarkdownContent'
 import styles from './Kode.module.css'
 
@@ -56,6 +56,7 @@ export default function Kode({ apiUrl }: { apiUrl: string }) {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [uploadedFile, setUploadedFile] = useState<string | null>(null)
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -263,6 +264,19 @@ export default function Kode({ apiUrl }: { apiUrl: string }) {
               </div>
               {msg.responseTime && (
                 <span className={styles.time}>{(msg.responseTime / 1000).toFixed(1)}s</span>
+              )}
+              {msg.role === 'assistant' && msg.content && (
+                <div className={styles.msgActions}>
+                  <button className={styles.msgActionBtn} onClick={() => { navigator.clipboard.writeText(msg.content); setCopiedIdx(i); setTimeout(() => setCopiedIdx(null), 1500) }}>
+                    <Copy size={12} /> {copiedIdx === i ? 'Copied!' : 'Copy'}
+                  </button>
+                  <button className={styles.msgActionBtn} onClick={() => sendMessage('Turn the above findings into a visual chart')}>
+                    <BarChart3 size={12} /> Add Chart
+                  </button>
+                  <button className={styles.msgActionBtn} onClick={() => { const blob = new Blob([msg.content], { type: 'text/markdown' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `klaus-report-${i}.md`; a.click() }}>
+                    <FileDown size={12} /> Save Report
+                  </button>
+                </div>
               )}
               {msg.content.includes('uploaded') && msg.content.includes('respondents') && i === messages.length - 1 && !loading && (
                 <div className={styles.postUploadActions}>

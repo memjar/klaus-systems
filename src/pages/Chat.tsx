@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Loader2, Paperclip, FileText, TrendingUp, BookOpen, AlertTriangle } from 'lucide-react'
+import { Send, Loader2, Paperclip, FileText, TrendingUp, BookOpen, AlertTriangle, Copy, BarChart3, FileDown } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import MarkdownContent from '../components/MarkdownContent'
 import styles from './Chat.module.css'
@@ -188,6 +188,7 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [uploadedFile, setUploadedFile] = useState<string | null>(null)
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -406,6 +407,19 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
                 <MarkdownContent content={msg.content} responseTime={msg.responseTime} />
               </div>
               {msg.charts?.map((c, ci) => <InlineChart key={ci} chart={c} />)}
+              {msg.role === 'assistant' && msg.content && (
+                <div className={styles.msgActions}>
+                  <button className={styles.msgActionBtn} onClick={() => { navigator.clipboard.writeText(msg.content); setCopiedIdx(i); setTimeout(() => setCopiedIdx(null), 1500) }}>
+                    <Copy size={12} /> {copiedIdx === i ? 'Copied!' : 'Copy'}
+                  </button>
+                  <button className={styles.msgActionBtn} onClick={() => sendMessage('Turn the above findings into a visual chart')}>
+                    <BarChart3 size={12} /> Add Chart
+                  </button>
+                  <button className={styles.msgActionBtn} onClick={() => { const blob = new Blob([msg.content], { type: 'text/markdown' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `klaus-report-${i}.md`; a.click() }}>
+                    <FileDown size={12} /> Save Report
+                  </button>
+                </div>
+              )}
               {msg.content.includes('uploaded successfully') && i === messages.length - 1 && !loading && (
                 <div className={styles.postUploadActions}>
                   <p className={styles.postUploadLabel}>What would you like to do?</p>

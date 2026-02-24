@@ -356,6 +356,41 @@
   cursor: not-allowed;
 }
 
+/* ===== MESSAGE ACTIONS ===== */
+.msgActions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.bubble:hover .msgActions {
+  opacity: 1;
+}
+
+.msgActionBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: var(--font-sans);
+}
+
+.msgActionBtn:hover {
+  border-color: var(--green);
+  color: var(--green);
+}
+
 /* ===== POST-UPLOAD ACTIONS ===== */
 .postUploadActions {
   margin-top: 12px;
