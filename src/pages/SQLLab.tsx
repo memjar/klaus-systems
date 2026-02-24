@@ -19,13 +19,15 @@ export default function SQLLab({ apiUrl }: { apiUrl: string }) {
     setSql('')
     setResults(null)
     try {
-      const res = await fetch(`${apiUrl}/klaus/imi/sql/generate`, {
+      const res = await fetch(`${apiUrl}/klaus/imi/sql`, {
         method: 'POST', headers,
         body: JSON.stringify({ question: question.trim() }),
       })
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
       const data = await res.json()
       setSql(data.sql || data.query || JSON.stringify(data, null, 2))
+      if (data.rows) setResults(data.rows)
+      if (data.results) setResults(data.results)
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to generate SQL')
     } finally {
@@ -39,12 +41,13 @@ export default function SQLLab({ apiUrl }: { apiUrl: string }) {
     setError('')
     setResults(null)
     try {
-      const res = await fetch(`${apiUrl}/klaus/imi/sql/execute`, {
+      const res = await fetch(`${apiUrl}/klaus/imi/sql`, {
         method: 'POST', headers,
-        body: JSON.stringify({ sql: sql.trim() }),
+        body: JSON.stringify({ query: sql.trim() }),
       })
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
       const data = await res.json()
+      if (data.sql) setSql(data.sql)
       setResults(data.results || data.rows || data.data || [])
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to execute SQL')
@@ -74,6 +77,13 @@ export default function SQLLab({ apiUrl }: { apiUrl: string }) {
           {generating ? <Loader2 size={16} className={styles.spin} /> : <Sparkles size={16} />}
           Generate SQL
         </button>
+        <div className={styles.suggestions}>
+          {['Show NPS by brand and market', 'Top 5 brands by awareness in Germany', 'Average purchase intent by quarter'].map(s => (
+            <button key={s} className={styles.suggestionBtn} onClick={() => setQuestion(s)}>
+              {s}
+            </button>
+          ))}
+        </div>
       </div>
 
       {sql && (

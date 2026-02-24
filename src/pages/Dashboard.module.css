@@ -113,11 +113,12 @@
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 20px;
+  overflow: hidden;
 }
 
 .npsRow {
   display: grid;
-  grid-template-columns: 180px 1fr 50px;
+  grid-template-columns: 160px 1fr 120px;
   align-items: center;
   gap: 12px;
 }
@@ -153,9 +154,12 @@
 
 .npsChange {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .up { color: var(--green); }

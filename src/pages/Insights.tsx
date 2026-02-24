@@ -39,18 +39,27 @@ export default function Insights({ apiUrl }: { apiUrl: string }) {
     if (!input.trim() && tab !== 'Anomalies') return
     switch (tab) {
       case 'Meta-Analysis':
-        return run(`${apiUrl}/klaus/imi/meta-analysis/run`, { question: input, datasets: input })
+        return run(`${apiUrl}/klaus/imi/meta-analysis`, { question: input, datasets: input })
       case 'Anomalies':
-        return run(`${apiUrl}/klaus/imi/anomalies/detect`, { dataset: input || 'default' })
+        return run(`${apiUrl}/klaus/imi/anomalies${input.trim() ? '/' + encodeURIComponent(input.trim()) : ''}`, undefined, 'GET')
       case 'Patterns':
-        return run(`${apiUrl}/klaus/imi/patterns/discover`, { query: input })
+        return run(`${apiUrl}/klaus/imi/patterns/all`, undefined, 'GET')
       case 'ML Predictions':
         return run(`${apiUrl}/klaus/imi/ml/predict`, { features: input })
       case 'Knowledge Graph':
-        return run(`${apiUrl}/klaus/imi/knowledge-graph/explore?query=${encodeURIComponent(input)}`, undefined, 'GET')
+        return run(`${apiUrl}/klaus/imi/graph/search?q=${encodeURIComponent(input)}`, undefined, 'GET')
       case 'Search':
-        return run(`${apiUrl}/klaus/imi/search`, { query: input })
+        return run(`${apiUrl}/klaus/imi/search?q=${encodeURIComponent(input)}`, undefined, 'GET')
     }
+  }
+
+  const suggestions: Record<Tab, string[]> = {
+    'Meta-Analysis': ['Cross-dataset brand health synthesis', 'Compare awareness vs purchase intent trends'],
+    'Anomalies': ['', 'automotive'],
+    'Patterns': ['Brand trust patterns', 'Campaign decay rates'],
+    'ML Predictions': ['Predict next quarter NPS by brand', 'Churn risk segmentation'],
+    'Knowledge Graph': ['brand health', 'campaign effectiveness'],
+    'Search': ['brand health', 'NPS benchmark'],
   }
 
   const placeholders: Record<Tab, string> = {
@@ -89,6 +98,13 @@ export default function Insights({ apiUrl }: { apiUrl: string }) {
           {loading ? <Loader2 size={16} className={styles.spin} /> : null}
           {loading ? 'Analyzing...' : `Run ${tab}`}
         </button>
+        <div className={styles.suggestions}>
+          {suggestions[tab]?.map((s, i) => (
+            <button key={i} className={styles.suggestionBtn} onClick={() => { setInput(s); }}>
+              {s || '(default dataset)'}
+            </button>
+          ))}
+        </div>
       </div>
 
       {error && <div className={styles.error}>{error}</div>}

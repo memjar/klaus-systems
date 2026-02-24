@@ -68,7 +68,7 @@ export default function Layout({ apiUrl: _apiUrl }: { apiUrl: string }) {
         <div className={styles.footer}>
           <div className={styles.status}>
             <span className={styles.dot} />
-            <span className={styles.statusText}>Qwen 32B</span>
+            <span className={styles.statusText}>Klaus AI</span>
           </div>
           <a href="/login" className={styles.link}>
             <LogOut size={18} />

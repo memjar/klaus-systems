@@ -70,7 +70,7 @@ export default function Reports({ apiUrl }: { apiUrl: string }) {
           <select className={styles.select} value={template} onChange={e => setTemplate(e.target.value)}>
             {REPORT_TEMPLATES.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
-          <button className={styles.btn} onClick={() => run(`${apiUrl}/klaus/imi/reports/generate`, { template })} disabled={loading}>
+          <button className={styles.btn} onClick={() => run(`${apiUrl}/klaus/imi/report/generate`, { template })} disabled={loading}>
             {loading ? <Loader2 size={16} className={styles.spin} /> : null}
             Generate Report
           </button>
@@ -85,7 +85,7 @@ export default function Reports({ apiUrl }: { apiUrl: string }) {
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
           />
-          <button className={styles.btn} onClick={() => run(`${apiUrl}/klaus/imi/case-studies/search?query=${encodeURIComponent(searchQuery)}`, undefined, 'GET')} disabled={loading || !searchQuery.trim()}>
+          <button className={styles.btn} onClick={() => run(`${apiUrl}/klaus/imi/case-studies/search?q=${encodeURIComponent(searchQuery)}`, undefined, 'GET')} disabled={loading || !searchQuery.trim()}>
             {loading ? <Loader2 size={16} className={styles.spin} /> : null}
             Search
           </button>

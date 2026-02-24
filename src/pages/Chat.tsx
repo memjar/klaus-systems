@@ -162,7 +162,6 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
           message: uploadedFile ? `[Context: user uploaded survey "${uploadedFile}"]\n${msg}` : msg,
           history: messages,
           agent: 'klaus-imi',
-          use_tools: true,
           prefer_speed: true,
         }),
       })
