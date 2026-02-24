@@ -29,6 +29,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       return
     }
     try {
+      setAccessError('')
       setStatus('waiting')
       localStorage.setItem('klaus_user', selectedUser)
       const res = await fetch(OBSERVER_ENDPOINTS.START, {
@@ -56,7 +57,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     } catch {
       setStatus('error')
     }
-  }, [])
+  }, [selectedUser])
 
   useEffect(() => {
     return () => { if (pollRef.current) clearInterval(pollRef.current) }
