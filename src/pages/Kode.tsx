@@ -32,8 +32,14 @@ function ThinkingAnimation() {
   const baseMessage = THINKING_MESSAGES[phase].replace(/\.+$/, '')
 
   return (
-    <div className={styles.thinkingTextOnly}>
-      <span className={styles.thinkingText}>{baseMessage}{dots}</span>
+    <div className={styles.thinkingContainer}>
+      <div className={styles.thinkingRing}>
+        <div className={styles.ringInner} />
+      </div>
+      <div className={styles.thinkingContent}>
+        <span className={styles.thinkingText}>{baseMessage}{dots}</span>
+        <div className={styles.scanBar} />
+      </div>
     </div>
   )
 }
