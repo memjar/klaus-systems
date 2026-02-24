@@ -24,18 +24,14 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   }, [])
 
   const requestAccess = useCallback(async () => {
-    if (!selectedUser) {
-      setAccessError('SELECT A USER PROFILE')
-      return
-    }
     try {
       setAccessError('')
       setStatus('waiting')
-      localStorage.setItem('klaus_user', selectedUser)
+      if (selectedUser) localStorage.setItem('klaus_user', selectedUser)
       const res = await fetch(OBSERVER_ENDPOINTS.START, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
-        body: JSON.stringify({ user: selectedUser, source: 'klaus.systems' }),
+        body: JSON.stringify({ user: selectedUser || 'guest', source: 'klaus.systems' }),
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
@@ -71,13 +67,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   const handleAccessCode = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedUser) {
-      setAccessError('SELECT A USER PROFILE')
-      return
-    }
     if (accessCode.trim() === 'heartbeat') {
       localStorage.setItem('klaus_auth', accessCode.trim())
-      localStorage.setItem('klaus_user', selectedUser)
+      if (selectedUser) localStorage.setItem('klaus_user', selectedUser)
       setStatus('approved')
     } else {
       setAccessError('ACCESS DENIED')
