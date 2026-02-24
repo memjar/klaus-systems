@@ -1,410 +1,513 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Loader2, Plus, Terminal, Copy, BarChart3, FileDown } from 'lucide-react'
+import { Send, Loader2, Upload, AlertTriangle, FileText, Presentation, Database, BarChart3, Table2, Terminal } from 'lucide-react'
 import MarkdownContent from '../components/MarkdownContent'
 import styles from './Kode.module.css'
 
-const THINKING_MESSAGES = [
-  'Thinking...',
-  'On it...',
-  'Working...',
-  'Processing...',
-  'Analyzing...',
-]
+type ViewType = 'welcome' | 'stats' | 'anomalies' | 'report' | 'deck' | 'sql' | 'table'
 
-function ThinkingAnimation() {
-  const [phase, setPhase] = useState(0)
-  const [dots, setDots] = useState('')
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setPhase(p => (p + 1) % THINKING_MESSAGES.length)
-    }, 600)
-    return () => clearInterval(interval)
-  }, [])
-
-  useEffect(() => {
-    const dotInterval = setInterval(() => {
-      setDots(d => d.length >= 3 ? '' : d + '.')
-    }, 300)
-    return () => clearInterval(dotInterval)
-  }, [])
-
-  const baseMessage = THINKING_MESSAGES[phase].replace(/\.+$/, '')
-
-  return (
-    <div className={styles.thinkingContainer}>
-      <div className={styles.thinkingRing}>
-        <div className={styles.ringInner} />
-      </div>
-      <div className={styles.thinkingContent}>
-        <span className={styles.thinkingText}>{baseMessage}{dots}</span>
-        <div className={styles.scanBar} />
-      </div>
-    </div>
-  )
+interface Dataset {
+  id: string
+  name: string
+  total_n: number
 }
 
-interface KodeMessage {
-  role: 'user' | 'assistant'
-  content: string
-  toolEvents?: { type: string; tool: string; preview?: string }[]
-  responseTime?: number
-}
-
-interface KodeBriefing {
-  date: string
-  whereYouWere: string
-  whatYouFound: string
-  whereGoing: string
-  lastMessages: KodeMessage[]
-}
-
-function generateBriefing(msgs: KodeMessage[]): KodeBriefing | null {
-  if (msgs.length < 2) return null
-  const userMsgs = msgs.filter(m => m.role === 'user')
-  const assistantMsgs = msgs.filter(m => m.role === 'assistant' && m.content)
-  if (!userMsgs.length || !assistantMsgs.length) return null
-  return {
-    date: new Date().toISOString(),
-    whereYouWere: userMsgs[0].content.slice(0, 120),
-    whatYouFound: assistantMsgs[assistantMsgs.length - 1].content.slice(0, 120),
-    whereGoing: userMsgs[userMsgs.length - 1].content.slice(0, 120),
-    lastMessages: msgs.slice(-10),
-  }
-}
-
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'Just now'
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  const days = Math.floor(hrs / 24)
-  if (days === 1) return 'Yesterday'
-  return `${days} days ago`
+interface StatsData {
+  datasets: number
+  dataset_files: string[]
+  vector_documents: number
+  training_pairs: number
+  avg_training_quality: string
+  chart_types: number
+  endpoints: string[]
 }
 
 export default function Kode({ apiUrl }: { apiUrl: string }) {
-  const [messages, setMessages] = useState<KodeMessage[]>([])
-  const [input, setInput] = useState('')
+  const [datasets, setDatasets] = useState<Dataset[]>([])
+  const [selectedDataset, setSelectedDataset] = useState<string | null>(null)
+  const [activeView, setActiveView] = useState<ViewType>('welcome')
+  const [canvasData, setCanvasData] = useState<unknown>(null)
   const [loading, setLoading] = useState(false)
-  const [uploadedFile, setUploadedFile] = useState<string | null>(null)
-  const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
-  const [briefing, setBriefing] = useState<KodeBriefing | null>(() => {
-    try { const b = localStorage.getItem('kode_briefing'); return b ? JSON.parse(b) : null } catch { return null }
-  })
-  const bottomRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  // Mini chat state
+  const [chatInput, setChatInput] = useState('')
+  const [chatLoading, setChatLoading] = useState(false)
+  const [chatResponse, setChatResponse] = useState('')
+  const chatInputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    const save = () => {
-      const b = generateBriefing(messages)
-      if (b) localStorage.setItem('kode_briefing', JSON.stringify(b))
-    }
-    window.addEventListener('beforeunload', save)
-    return () => window.removeEventListener('beforeunload', save)
-  }, [messages])
+  const headers = { 'ngrok-skip-browser-warning': 'true' }
 
+  // Fetch datasets on mount
   useEffect(() => {
-    const b = generateBriefing(messages)
-    if (b) localStorage.setItem('kode_briefing', JSON.stringify(b))
-  }, [messages])
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
-
-  useEffect(() => {
-    inputRef.current?.focus()
+    fetchDatasets()
   }, [])
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  async function fetchDatasets() {
+    try {
+      const res = await fetch(`${apiUrl}/klaus/imi/surveys`, { headers })
+      if (res.ok) {
+        const data = await res.json()
+        setDatasets(data.surveys || [])
+      }
+    } catch { /* offline */ }
+  }
+
+  async function apiFetch(path: string, opts?: RequestInit) {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`${apiUrl}${path}`, {
+        ...opts,
+        headers: { ...headers, ...(opts?.headers || {}) },
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`)
+      return data
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Request failed'
+      setError(msg)
+      return null
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // ─── Actions ───
+  async function loadStats() {
+    setActiveView('stats')
+    const data = await apiFetch('/klaus/imi/stats')
+    if (data) setCanvasData(data)
+  }
+
+  async function loadAnomalies() {
+    setActiveView('anomalies')
+    const path = selectedDataset ? `/klaus/imi/anomalies/${selectedDataset}` : '/klaus/imi/anomalies'
+    const data = await apiFetch(path)
+    if (data) setCanvasData(data)
+  }
+
+  async function generateReport() {
+    setActiveView('report')
+    const data = await apiFetch('/klaus/imi/report/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ template: 'brand health overview' }),
+    })
+    if (data) setCanvasData(data)
+  }
+
+  async function generateDeck() {
+    if (!selectedDataset) {
+      setError('Select a dataset first')
+      return
+    }
+    setActiveView('deck')
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`${apiUrl}/klaus/imi/generate-deck`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ survey_id: selectedDataset }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.detail || `HTTP ${res.status}`)
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${selectedDataset}_IMI.pptx`
+      a.click()
+      URL.revokeObjectURL(url)
+      setCanvasData({ downloaded: true })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Deck generation failed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function openSQL() {
+    setActiveView('sql')
+    setCanvasData(null)
+    setError(null)
+  }
+
+  async function runSQL(query: string) {
+    const data = await apiFetch('/klaus/imi/sql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query }),
+    })
+    if (data) setCanvasData(data)
+  }
+
+  async function selectDataset(ds: Dataset) {
+    setSelectedDataset(ds.id)
+    setActiveView('table')
+    // Show survey detail if available
+    const data = await apiFetch(`/klaus/imi/dashboard`)
+    if (data) setCanvasData({ ...data, selectedName: ds.name, selectedN: ds.total_n })
+  }
+
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
     const formData = new FormData()
     formData.append('file', file)
-    setMessages(prev => [...prev, { role: 'user', content: `Uploading ${file.name}...` }])
     setLoading(true)
+    setError(null)
     try {
       const res = await fetch(`${apiUrl}/klaus/imi/upload-survey`, {
         method: 'POST',
-        headers: { 'ngrok-skip-browser-warning': 'true' },
+        headers,
         body: formData,
       })
       if (!res.ok) {
         const err = await res.json()
         throw new Error(err.detail || `HTTP ${res.status}`)
       }
-      const data = await res.json()
-      setUploadedFile(data.survey_name)
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: `**${data.survey_name}** uploaded — ${data.total_n} respondents, ${data.questions_found} questions, format: ${data.format}\n\nYou can now ask questions about this data.`
-      }])
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Upload failed'
-      setMessages(prev => [...prev, { role: 'assistant', content: `Upload failed: ${msg}` }])
+      await fetchDatasets()
+      setActiveView('stats')
+      await loadStats()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Upload failed')
     } finally {
       setLoading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
-      inputRef.current?.focus()
     }
   }
 
-  const sendMessage = async (text?: string) => {
-    const msg = (text || input).trim()
-    if (!msg || loading) return
-
-    setMessages(prev => [...prev, { role: 'user', content: msg }])
-    setInput('')
-    setLoading(true)
-
-    const startTime = Date.now()
+  // ─── Mini Chat ───
+  async function sendChat() {
+    const msg = chatInput.trim()
+    if (!msg || chatLoading) return
+    setChatInput('')
+    setChatLoading(true)
+    setChatResponse('')
     try {
       const res = await fetch(`${apiUrl}/klaus/imi/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+        headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: uploadedFile ? `[Context: user uploaded survey "${uploadedFile}"]\n${msg}` : msg,
-          history: messages,
+          message: selectedDataset ? `[Context: dataset "${selectedDataset}"]\n${msg}` : msg,
+          history: [],
           agent: 'klaus-imi',
           use_tools: true,
           prefer_speed: true,
         }),
       })
-
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-
       const reader = res.body?.getReader()
       if (!reader) throw new Error('No reader')
-
       const decoder = new TextDecoder()
-      let fullContent = ''
-      const toolEvents: KodeMessage['toolEvents'] = []
-
-      setMessages(prev => [...prev, { role: 'assistant', content: '', toolEvents: [] }])
-
+      let full = ''
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
-
         const chunk = decoder.decode(value, { stream: true })
-        const lines = chunk.split('\n').filter(l => l.trim())
-
-        for (const line of lines) {
+        for (const line of chunk.split('\n').filter(l => l.trim())) {
           try {
             const parsed = JSON.parse(line)
-
-            if (parsed.type === 'tool_start') {
-              toolEvents.push({ type: 'start', tool: parsed.tool })
-              const content = fullContent
-              const events = [...toolEvents]
-              setMessages(prev => {
-                const updated = [...prev]
-                updated[updated.length - 1] = { role: 'assistant', content, toolEvents: events }
-                return updated
-              })
-            } else if (parsed.type === 'tool_result') {
-              toolEvents.push({ type: 'result', tool: parsed.tool, preview: parsed.preview })
-              const content = fullContent
-              const events = [...toolEvents]
-              setMessages(prev => {
-                const updated = [...prev]
-                updated[updated.length - 1] = { role: 'assistant', content, toolEvents: events }
-                return updated
-              })
-            } else if (parsed.type === 'token') {
-              fullContent += parsed.content || ''
-              const content = fullContent
-              const events = [...toolEvents]
-              setMessages(prev => {
-                const updated = [...prev]
-                updated[updated.length - 1] = { role: 'assistant', content, toolEvents: events }
-                return updated
-              })
-            } else {
-              // Legacy Ollama format
-              const token = (parsed.message?.content || '').replace(/<\/?think>/g, '')
-              if (token) {
-                fullContent += token
-                const content = fullContent
-                setMessages(prev => {
-                  const updated = [...prev]
-                  updated[updated.length - 1] = { role: 'assistant', content }
-                  return updated
-                })
-              }
+            if (parsed.type === 'token') {
+              full += parsed.content || ''
+              setChatResponse(full)
+            } else if (parsed.message?.content) {
+              const token = parsed.message.content.replace(/<\/?think>/g, '')
+              if (token) { full += token; setChatResponse(full) }
             }
-          } catch {
-            // skip malformed
-          }
+          } catch { /* skip */ }
         }
       }
-
-      const elapsed = Date.now() - startTime
-      setMessages(prev => {
-        const updated = [...prev]
-        updated[updated.length - 1] = { ...updated[updated.length - 1], responseTime: elapsed }
-        return updated
-      })
-
-      if (!fullContent && toolEvents.length === 0) {
-        setMessages(prev => {
-          const updated = [...prev]
-          updated[updated.length - 1] = { role: 'assistant', content: 'No response — check if Ollama is running.' }
-          return updated
-        })
-      }
+      if (!full) setChatResponse('No response.')
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Connection error — backend may be offline.' }])
+      setChatResponse('Connection error.')
     } finally {
-      setLoading(false)
-      inputRef.current?.focus()
+      setChatLoading(false)
+      chatInputRef.current?.focus()
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    sendMessage()
-  }
+  // ─── Render helpers ───
+  function renderCanvas() {
+    if (loading) {
+      return <div className={styles.loadingOverlay}><Loader2 size={20} className={styles.spinner} /> Loading...</div>
+    }
+    if (error) {
+      return <div className={styles.errorBox}>{error}</div>
+    }
 
-  const isThinking = loading && messages.length > 0 &&
-    messages[messages.length - 1]?.role === 'assistant' &&
-    !messages[messages.length - 1]?.content &&
-    (!messages[messages.length - 1]?.toolEvents || messages[messages.length - 1]?.toolEvents?.length === 0)
+    switch (activeView) {
+      case 'welcome':
+        return (
+          <div className={styles.canvasEmpty}>
+            <Terminal size={32} style={{ color: 'var(--green)' }} />
+            <h3>IMI Analyst Workbench</h3>
+            <p>Select a dataset from the sidebar or use the toolbar actions to run anomaly detection, generate reports, create decks, or query with SQL.</p>
+          </div>
+        )
 
-  return (
-    <div className={styles.container}>
-      <div className={styles.messages}>
-        {messages.length === 0 && (
-          briefing ? (
-            <div className={styles.empty}>
-              <div className={styles.briefing}>
-                <span className={styles.briefingDate}>{timeAgo(briefing.date)}</span>
-                <div className={styles.briefingLine}><span className={styles.briefingLabel}>You were exploring:</span> {briefing.whereYouWere}</div>
-                <div className={styles.briefingLine}><span className={styles.briefingLabel}>Klaus found:</span> {briefing.whatYouFound}</div>
-                <div className={styles.briefingLine}><span className={styles.briefingLabel}>Next up:</span> {briefing.whereGoing}</div>
-                <div className={styles.briefingActions}>
-                  <button className={styles.continueBtn} onClick={() => { setMessages(briefing.lastMessages); setBriefing(null); localStorage.removeItem('kode_briefing') }}>Continue</button>
-                  <button className={styles.newBtn} onClick={() => { setBriefing(null); localStorage.removeItem('kode_briefing') }}>Something new</button>
-                </div>
+      case 'stats': {
+        const d = canvasData as StatsData | null
+        if (!d) return null
+        return (
+          <>
+            <h3 className={styles.sectionHeader}><BarChart3 size={16} /> System Overview</h3>
+            <div className={styles.statGrid}>
+              <div className={styles.statCard}>
+                <div className={styles.statValue}>{d.datasets}</div>
+                <div className={styles.statLabel}>Datasets</div>
+              </div>
+              <div className={styles.statCard}>
+                <div className={styles.statValue}>{d.vector_documents || 0}</div>
+                <div className={styles.statLabel}>Vector Documents</div>
+              </div>
+              <div className={styles.statCard}>
+                <div className={styles.statValue}>{d.training_pairs || 0}</div>
+                <div className={styles.statLabel}>Training Pairs</div>
+              </div>
+              <div className={styles.statCard}>
+                <div className={styles.statValue}>{d.chart_types || 0}</div>
+                <div className={styles.statLabel}>Chart Types</div>
               </div>
             </div>
-          ) : (
-            <div className={styles.empty}>
-              <div className={styles.emptyIcon}><Terminal size={40} /></div>
-              <h2>Klaus Kode</h2>
-              <p>Research-grade AI terminal. Upload datasets, run analysis, ask anything about your IMI survey data.</p>
-              <div className={styles.suggestions}>
-                {['What datasets are available?', 'Summarize brand health trends', 'Compare GenZ vs Boomers', 'Show sponsorship ROI'].map(s => (
-                  <button key={s} className={styles.suggestion} onClick={() => { setInput(s); inputRef.current?.focus() }}>{s}</button>
+            {d.dataset_files && (
+              <>
+                <h3 className={styles.sectionHeader}>Datasets on Disk</h3>
+                <table className={styles.dataTable}>
+                  <thead><tr><th>File</th></tr></thead>
+                  <tbody>
+                    {d.dataset_files.map(f => <tr key={f}><td>{f}</td></tr>)}
+                  </tbody>
+                </table>
+              </>
+            )}
+          </>
+        )
+      }
+
+      case 'anomalies': {
+        const d = canvasData as Record<string, unknown> | null
+        if (!d) return null
+        // Cached responses return various shapes — render what we get
+        if (d.ok === false) return <div className={styles.errorBox}>{String(d.error || 'No anomaly data')}</div>
+        const items = Array.isArray(d.anomalies) ? d.anomalies : Array.isArray(d.results) ? d.results : null
+        if (items) {
+          return (
+            <>
+              <h3 className={styles.sectionHeader}><AlertTriangle size={16} /> Anomalies Detected</h3>
+              <div className={styles.anomalyList}>
+                {items.map((item: Record<string, unknown>, i: number) => (
+                  <div key={i} className={styles.anomalyItem}>
+                    <span className={`${styles.severityBadge} ${
+                      item.severity === 'high' ? styles.severityHigh :
+                      item.severity === 'medium' ? styles.severityMedium : styles.severityLow
+                    }`}>{String(item.severity || 'info')}</span>
+                    <span className={styles.anomalyText}>{String(item.description || item.message || JSON.stringify(item))}</span>
+                  </div>
                 ))}
               </div>
+            </>
+          )
+        }
+        // Fallback: render raw JSON prettily
+        return (
+          <>
+            <h3 className={styles.sectionHeader}><AlertTriangle size={16} /> Anomaly Results</h3>
+            <div className={styles.reportContent}>
+              <MarkdownContent content={'```json\n' + JSON.stringify(d, null, 2) + '\n```'} />
+            </div>
+          </>
+        )
+      }
+
+      case 'report': {
+        const d = canvasData as Record<string, unknown> | null
+        if (!d) return null
+        if (d.ok === false) return <div className={styles.errorBox}>{String(d.error || 'Report generation failed')}</div>
+        const report = String(d.report || d.content || JSON.stringify(d, null, 2))
+        return (
+          <div className={styles.reportView}>
+            <h3 className={styles.sectionHeader}><FileText size={16} /> Generated Report</h3>
+            <div className={styles.reportActions}>
+              <button className={styles.actionBtn} onClick={() => navigator.clipboard.writeText(report)}>Copy</button>
+              <button className={styles.actionBtn} onClick={() => {
+                const blob = new Blob([report], { type: 'text/markdown' })
+                const a = document.createElement('a')
+                a.href = URL.createObjectURL(blob)
+                a.download = 'imi-report.md'
+                a.click()
+              }}>Download .md</button>
+            </div>
+            <div className={styles.reportContent}>
+              <MarkdownContent content={report} />
+            </div>
+          </div>
+        )
+      }
+
+      case 'deck': {
+        const d = canvasData as Record<string, unknown> | null
+        if (d?.downloaded) {
+          return (
+            <div className={styles.deckSuccess}>
+              <Presentation size={40} style={{ color: 'var(--green)' }} />
+              <p>PPTX deck downloaded successfully.</p>
+              <button className={styles.actionBtn} onClick={generateDeck}>Generate Again</button>
             </div>
           )
-        )}
+        }
+        return null
+      }
 
-        {messages.map((msg, i) => (
-          <div key={i} className={`${styles.message} ${styles[msg.role]}`}>
-            <div className={styles.avatar}>
-              {msg.role === 'user' ? 'J' : 'K'}
-            </div>
-            <div className={styles.bubble}>
-              {msg.toolEvents && msg.toolEvents.length > 0 && (
-                <div className={styles.toolActivity}>
-                  {msg.toolEvents.map((ev, j) => (
-                    <span key={j} className={`${styles.toolBadge} ${ev.type === 'start' ? styles.toolRunning : styles.toolDone}`}>
-                      {ev.type === 'start' ? <Loader2 size={10} className={styles.toolSpin} /> : <span>&#10003;</span>}
-                      {ev.tool}
-                    </span>
-                  ))}
-                </div>
-              )}
-              <div className={styles.content}>
-                {msg.role === 'assistant'
-                  ? <MarkdownContent content={msg.content} />
-                  : msg.content
-                }
+      case 'sql':
+        return <SQLView onRun={runSQL} result={canvasData} loading={loading} />
+
+      case 'table': {
+        const d = canvasData as Record<string, unknown> | null
+        if (!d) return null
+        return (
+          <>
+            <h3 className={styles.sectionHeader}><Table2 size={16} /> {String((d as Record<string, unknown>).selectedName || 'Dataset')}</h3>
+            <div className={styles.statGrid}>
+              <div className={styles.statCard}>
+                <div className={styles.statValue}>{String((d as Record<string, unknown>).selectedN || 0)}</div>
+                <div className={styles.statLabel}>Respondents</div>
               </div>
-              {msg.responseTime && (
-                <span className={styles.time}>{(msg.responseTime / 1000).toFixed(1)}s</span>
-              )}
-              {msg.role === 'assistant' && msg.content && (
-                <div className={styles.msgActions}>
-                  <button className={styles.msgActionBtn} onClick={() => { navigator.clipboard.writeText(msg.content); setCopiedIdx(i); setTimeout(() => setCopiedIdx(null), 1500) }}>
-                    <Copy size={12} /> {copiedIdx === i ? 'Copied!' : 'Copy'}
-                  </button>
-                  <button className={styles.msgActionBtn} onClick={() => sendMessage('Turn the above findings into a visual chart')}>
-                    <BarChart3 size={12} /> Add Chart
-                  </button>
-                  <button className={styles.msgActionBtn} onClick={() => { const blob = new Blob([msg.content], { type: 'text/markdown' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `klaus-report-${i}.md`; a.click() }}>
-                    <FileDown size={12} /> Save Report
-                  </button>
-                </div>
-              )}
-              {msg.content.includes('uploaded') && msg.content.includes('respondents') && i === messages.length - 1 && !loading && (
-                <div className={styles.postUploadActions}>
-                  <p className={styles.postUploadLabel}>What would you like to do?</p>
-                  <div className={styles.postUploadGrid}>
-                    {[
-                      { label: 'Summarize Key Findings', prompt: 'Give me a summary of the key findings from this survey — top-line results, notable patterns, and anything surprising.' },
-                      { label: 'Break Down by Segment', prompt: 'Break down the results by demographic segments (age, gender, region). Show me where the biggest differences are.' },
-                      { label: 'Compare with Benchmarks', prompt: 'Compare these results against industry benchmarks or our other datasets. Where do we over/under-index?' },
-                      { label: 'Generate Client Report', prompt: 'Generate a client-ready executive summary of this data with key insights, charts, and recommended actions.' },
-                    ].map(action => (
-                      <button
-                        key={action.label}
-                        className={styles.postUploadBtn}
-                        onClick={() => sendMessage(action.prompt)}
-                      >
-                        {action.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <div className={styles.statCard}>
+                <div className={styles.statValue}>{(d as Record<string, unknown>).datasets as number || 0}</div>
+                <div className={styles.statLabel}>Total Datasets</div>
+              </div>
+              <div className={styles.statCard}>
+                <div className={styles.statValue}>{(d as Record<string, unknown>).total_records as number || 0}</div>
+                <div className={styles.statLabel}>Total Records</div>
+              </div>
             </div>
-          </div>
-        ))}
+            {Array.isArray((d as Record<string, unknown>).datasets_info) && (
+              <table className={styles.dataTable}>
+                <thead><tr><th>Dataset</th><th>Records</th><th>Type</th></tr></thead>
+                <tbody>
+                  {((d as Record<string, unknown>).datasets_info as Array<Record<string, unknown>>).map((ds, i) => (
+                    <tr key={i}><td>{String(ds.name)}</td><td>{String(ds.records)}</td><td>{String(ds.type)}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </>
+        )
+      }
 
-        {isThinking && (
-          <div className={`${styles.message} ${styles.assistant}`}>
-            <div className={styles.avatar}>K</div>
-            <div className={styles.bubble}>
-              <ThinkingAnimation />
-            </div>
-          </div>
-        )}
+      default:
+        return null
+    }
+  }
 
-        <div ref={bottomRef} />
+  return (
+    <div className={styles.workbench}>
+      {/* Toolbar */}
+      <div className={styles.toolbar}>
+        <button className={`${styles.actionBtn} ${activeView === 'stats' ? styles.actionBtnActive : ''}`} onClick={loadStats}>
+          <BarChart3 size={13} /> Stats
+        </button>
+        <button className={`${styles.actionBtn} ${activeView === 'anomalies' ? styles.actionBtnActive : ''}`} onClick={loadAnomalies}>
+          <AlertTriangle size={13} /> Anomalies
+        </button>
+        <button className={`${styles.actionBtn} ${activeView === 'report' ? styles.actionBtnActive : ''}`} onClick={generateReport}>
+          <FileText size={13} /> Report
+        </button>
+        <button className={`${styles.actionBtn} ${activeView === 'deck' ? styles.actionBtnActive : ''}`} onClick={generateDeck} disabled={!selectedDataset}>
+          <Presentation size={13} /> Deck
+        </button>
+        <button className={`${styles.actionBtn} ${activeView === 'sql' ? styles.actionBtnActive : ''}`} onClick={openSQL}>
+          <Database size={13} /> SQL
+        </button>
+        <div className={styles.toolbarSpacer} />
+        <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv,.json" onChange={handleFileUpload} style={{ display: 'none' }} />
+        <button className={styles.uploadBtn} onClick={() => fileInputRef.current?.click()} disabled={loading}>
+          <Upload size={13} /> Upload
+        </button>
       </div>
 
-      <form onSubmit={handleSubmit} className={styles.inputArea}>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".xlsx,.xls,.csv,.json"
-          onChange={handleFileUpload}
-          style={{ display: 'none' }}
-        />
-        <button type="button" className={styles.attachBtn} title="Upload dataset" onClick={() => fileInputRef.current?.click()} disabled={loading}>
-          <Plus size={16} />
-        </button>
-        <input
-          ref={inputRef}
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          placeholder="Ask Klaus anything..."
-          className={styles.input}
-          disabled={loading}
-          autoFocus
-        />
-        <button type="submit" className={styles.sendBtn} disabled={loading || !input.trim()}>
-          {loading ? <Loader2 size={16} className={styles.spinner} /> : <Send size={16} />}
-        </button>
-      </form>
+      {/* Body: sidebar + canvas */}
+      <div className={styles.body}>
+        <div className={styles.sidebar}>
+          <span className={styles.sidebarLabel}>Datasets</span>
+          {datasets.length === 0 ? (
+            <div className={styles.noDatasets}>No datasets loaded. Upload a file to get started.</div>
+          ) : (
+            datasets.map(ds => (
+              <div
+                key={ds.id}
+                className={`${styles.datasetCard} ${selectedDataset === ds.id ? styles.datasetCardActive : ''}`}
+                onClick={() => selectDataset(ds)}
+              >
+                <div className={styles.datasetName}>{ds.name}</div>
+                <div className={styles.datasetMeta}>{ds.total_n.toLocaleString()} respondents</div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className={styles.canvas}>
+          {renderCanvas()}
+        </div>
+      </div>
+
+      {/* Mini chat bar */}
+      <div className={styles.chatBar}>
+        {chatResponse && (
+          <div className={styles.chatResponse}>
+            <MarkdownContent content={chatResponse} />
+          </div>
+        )}
+        <form className={styles.chatInputRow} onSubmit={e => { e.preventDefault(); sendChat() }}>
+          <input
+            ref={chatInputRef}
+            value={chatInput}
+            onChange={e => setChatInput(e.target.value)}
+            placeholder="Ask Klaus anything..."
+            className={styles.chatInput}
+            disabled={chatLoading}
+          />
+          <button type="submit" className={styles.chatSendBtn} disabled={chatLoading || !chatInput.trim()}>
+            {chatLoading ? <Loader2 size={14} className={styles.spinner} /> : <Send size={14} />}
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// ─── SQL Sub-view ───
+function SQLView({ onRun, result, loading }: { onRun: (q: string) => void; result: unknown; loading: boolean }) {
+  const [query, setQuery] = useState('')
+  const d = result as Record<string, unknown> | null
+
+  return (
+    <div className={styles.sqlView}>
+      <h3 className={styles.sectionHeader}><Database size={16} /> SQL Query</h3>
+      <textarea
+        className={styles.sqlInput}
+        value={query}
+        onChange={e => setQuery(e.target.value)}
+        placeholder="SELECT * FROM brand_health_tracker LIMIT 10"
+        onKeyDown={e => { if (e.key === 'Enter' && e.metaKey) { e.preventDefault(); onRun(query) } }}
+      />
+      <button className={styles.sqlRunBtn} onClick={() => onRun(query)} disabled={loading || !query.trim()}>
+        Run Query
+      </button>
+      {d && (
+        <div className={styles.reportContent}>
+          {d.ok === false ? (
+            <div className={styles.errorBox}>{String(d.error)}</div>
+          ) : (
+            <MarkdownContent content={'```json\n' + JSON.stringify(d, null, 2) + '\n```'} />
+          )}
+        </div>
+      )}
     </div>
   )
 }
