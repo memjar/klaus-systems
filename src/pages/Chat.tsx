@@ -160,7 +160,7 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
         headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
         body: JSON.stringify({
           message: uploadedFile ? `[Context: user uploaded survey "${uploadedFile}"]\n${msg}` : msg,
-          history: messages,
+          history: messages.map(m => ({ role: m.role, content: m.content })),
           agent: 'klaus-imi',
           prefer_speed: true,
         }),
