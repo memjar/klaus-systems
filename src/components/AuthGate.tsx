@@ -31,7 +31,11 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     try {
       setStatus('waiting')
       localStorage.setItem('klaus_user', selectedUser)
-      const res = await fetch(OBSERVER_ENDPOINTS.START, { method: 'POST' })
+      const res = await fetch(OBSERVER_ENDPOINTS.START, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user: selectedUser, source: 'klaus.systems' }),
+      })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
 

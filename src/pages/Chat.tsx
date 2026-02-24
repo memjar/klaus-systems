@@ -250,13 +250,16 @@ function timeAgo(iso: string): string {
 }
 
 export default function Chat({ apiUrl }: { apiUrl: string }) {
-  const [messages, setMessages] = useState<Message[]>([])
+  const [messages, setMessages] = useState<Message[]>(() => {
+    try { const m = localStorage.getItem(`klaus_messages_${localStorage.getItem('klaus_user') || 'default'}`); return m ? JSON.parse(m) : [] } catch { return [] }
+  })
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [uploadedFile, setUploadedFile] = useState<string | null>(null)
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
   const klausUser = localStorage.getItem('klaus_user') || 'default'
   const briefingKey = `klaus_briefing_${klausUser}`
+  const messagesKey = `klaus_messages_${klausUser}`
   const [briefing, setBriefing] = useState<Briefing | null>(() => {
     try { const b = localStorage.getItem(briefingKey); return b ? JSON.parse(b) : null } catch { return null }
   })
@@ -277,6 +280,8 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
   useEffect(() => {
     const b = generateBriefing(messages)
     if (b) localStorage.setItem(briefingKey, JSON.stringify(b))
+    // Persist full messages per user (cap at last 50 to avoid quota issues)
+    try { localStorage.setItem(messagesKey, JSON.stringify(messages.slice(-50))) } catch { /* quota */ }
   }, [messages])
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -338,6 +343,7 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
           history: messages.map(m => ({ role: m.role, content: m.content })),
           agent: 'klaus-imi',
           prefer_speed: true,
+          user: klausUser,
         }),
       })
 
