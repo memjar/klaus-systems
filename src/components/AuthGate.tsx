@@ -74,7 +74,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       setAccessError('SELECT A USER PROFILE')
       return
     }
-    if (accessCode.trim() === 'vaultkey') {
+    if (accessCode.trim() === 'heartbeat') {
       localStorage.setItem('klaus_auth', accessCode.trim())
       localStorage.setItem('klaus_user', selectedUser)
       setStatus('approved')
