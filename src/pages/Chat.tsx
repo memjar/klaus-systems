@@ -71,23 +71,19 @@ interface Message {
   thinking?: string
 }
 
-const CHART_COLORS = ['#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd', '#818cf8', '#4f46e5', '#7c3aed', '#5b21b6']
+const CHART_COLORS = ['#4ade80', '#6366f1', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#14b8a6', '#f97316', '#a78bfa']
 
-function parseMarkdownTables(content: string): ChartData[] {
+function parseContentForCharts(content: string): ChartData[] {
   const charts: ChartData[] = []
-  // Split content into lines, find table blocks
-  const lines = content.split('\n')
 
+  // Strategy 1: Parse markdown tables (| col | col |)
+  const lines = content.split('\n')
   let i = 0
   while (i < lines.length) {
-    // Look for header row: | col | col | ... |
     const headerMatch = lines[i]?.match(/^\|(.+)\|$/)
     if (!headerMatch) { i++; continue }
-
-    // Next line must be separator: |---|---|
     const sepLine = lines[i + 1]
     if (!sepLine || !/^\|[\s:_-]+(\|[\s:_-]+)+\|$/.test(sepLine)) { i++; continue }
-
     const headers = headerMatch[1].split('|').map(h => h.trim()).filter(Boolean)
     const dataRows: Record<string, unknown>[] = []
     let j = i + 2
@@ -106,50 +102,86 @@ function parseMarkdownTables(content: string): ChartData[] {
       }
       j++
     }
-
-    if (dataRows.length < 2) { i = j; continue }
-
-    // Detect numeric columns
-    const numericCols = headers.filter(h =>
-      dataRows.every(r => typeof r[h] === 'number')
-    )
-    if (numericCols.length === 0) { i = j; continue }
-
-    // Find nearest heading above for title
-    let title = 'Data'
-    for (let k = i - 1; k >= 0; k--) {
-      const headingMatch = lines[k]?.match(/^#{1,4}\s+(.+)/)
-      if (headingMatch) { title = headingMatch[1]; break }
-    }
-
-    // Decide chart type: pie if 2 cols and values sum ~100
-    const labelCol = headers.find(h => !numericCols.includes(h)) || headers[0]
-    if (numericCols.length === 1 && headers.length === 2) {
-      const sum = dataRows.reduce((s, r) => s + (r[numericCols[0]] as number), 0)
-      if (sum > 90 && sum < 110) {
-        charts.push({
-          chart: 'pie',
-          title,
-          data: dataRows.map(r => ({ name: String(r[labelCol]), value: r[numericCols[0]] })),
-        })
-        i = j; continue
+    if (dataRows.length >= 2) {
+      const numericCols = headers.filter(h => dataRows.every(r => typeof r[h] === 'number'))
+      if (numericCols.length > 0) {
+        let title = 'Data'
+        for (let k = i - 1; k >= 0; k--) {
+          const m = lines[k]?.match(/^#{1,4}\s+(.+)/)
+          if (m) { title = m[1]; break }
+        }
+        const labelCol = headers.find(h => !numericCols.includes(h)) || headers[0]
+        const sum = numericCols.length === 1 ? dataRows.reduce((s, r) => s + (r[numericCols[0]] as number), 0) : 0
+        if (numericCols.length === 1 && headers.length === 2 && sum > 90 && sum < 110) {
+          charts.push({ chart: 'pie', title, data: dataRows.map(r => ({ name: String(r[labelCol]), value: r[numericCols[0]] })) })
+        } else {
+          charts.push({ chart: 'bar', title, data: dataRows.map(r => { const d: Record<string, unknown> = { name: String(r[labelCol]) }; numericCols.forEach(k => { d[k] = r[k] }); return d }), xKey: 'name', yKeys: numericCols })
+        }
       }
     }
+    i = j || i + 1
+  }
 
-    // Default: bar chart
-    charts.push({
-      chart: 'bar',
-      title,
-      data: dataRows.map(r => {
-        const d: Record<string, unknown> = { name: String(r[labelCol]) }
-        numericCols.forEach(k => { d[k] = r[k] })
-        return d
-      }),
-      xKey: 'name',
-      yKeys: numericCols,
-    })
+  // Strategy 2: Parse ASCII bar charts and label: value% patterns from code blocks and plain text
+  // Matches lines like: "Label  ████ 25%" or "Label: 25% Very Likely" or "- Label — 25%"
+  if (charts.length === 0) {
+    const sections: { title: string; items: { name: string; value: number }[] }[] = []
+    let currentTitle = ''
+    let currentItems: { name: string; value: number }[] = []
 
-    i = j
+    for (let li = 0; li < lines.length; li++) {
+      const line = lines[li]
+      // Detect section headers (markdown headings, bold text, or question labels)
+      const headingMatch = line.match(/^#{1,4}\s+(.+)/) || line.match(/^\*\*(.+?)\*\*/) || line.match(/^(Q\d+:.+)/)
+      if (headingMatch && currentItems.length === 0) {
+        currentTitle = headingMatch[1].replace(/\*\*/g, '').trim()
+        continue
+      }
+
+      // Match: "Label  ████ 25%" or "Label    ██ 09%" (ASCII bar chart)
+      const asciiMatch = line.match(/^\s*(.+?)\s{2,}[█▓░▒■]+\s*(\d+)%/)
+      // Match: "Label: 25%" or "- Label — 25%" or "Label  25%"
+      const labelValMatch = !asciiMatch && line.match(/^\s*[-•*]?\s*(.+?)[\s:—–-]+(\d+(?:\.\d+)?)\s*%/)
+
+      const match = asciiMatch || labelValMatch
+      if (match) {
+        const name = match[1].replace(/\*\*/g, '').replace(/^[-•*]\s*/, '').trim()
+        const value = parseFloat(match[2])
+        if (name && !isNaN(value) && name.length < 60) {
+          currentItems.push({ name, value })
+        }
+      } else if (currentItems.length >= 2 && (line.trim() === '' || line.match(/^#{1,4}\s/) || line.match(/^(Q\d+:)/))) {
+        // End of section
+        sections.push({ title: currentTitle || 'Data', items: [...currentItems] })
+        currentItems = []
+        const newHeading = line.match(/^#{1,4}\s+(.+)/) || line.match(/^(Q\d+:.+)/)
+        currentTitle = newHeading ? newHeading[1].replace(/\*\*/g, '').trim() : ''
+      }
+    }
+    if (currentItems.length >= 2) {
+      sections.push({ title: currentTitle || 'Data', items: [...currentItems] })
+    }
+
+    // Merge sections with same/similar title into one chart, cap at 5 charts
+    const merged = new Map<string, { name: string; value: number }[]>()
+    for (const s of sections) {
+      const key = s.title.replace(/\s*\(cont'd?\).*$/i, '').trim() || 'Data'
+      const existing = merged.get(key) || []
+      existing.push(...s.items)
+      merged.set(key, existing)
+    }
+
+    for (const [title, items] of merged) {
+      if (charts.length >= 5) break
+      const sum = items.reduce((s, it) => s + it.value, 0)
+      if (items.length <= 8 && sum > 90 && sum < 110) {
+        charts.push({ chart: 'pie', title, data: items.map(it => ({ name: it.name, value: it.value })) })
+      } else {
+        // Limit to top 12 items for readability
+        const capped = items.slice(0, 12)
+        charts.push({ chart: 'bar', title, data: capped.map(it => ({ name: it.name, value: it.value })), xKey: 'name', yKeys: ['value'] })
+      }
+    }
   }
 
   return charts
@@ -157,24 +189,24 @@ function parseMarkdownTables(content: string): ChartData[] {
 
 function InlineChart({ chart }: { chart: ChartData }) {
   return (
-    <div style={{ marginTop: 12, background: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: 12 }}>
-      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, opacity: 0.8 }}>{chart.title}</div>
-      <ResponsiveContainer width="100%" height={200}>
+    <div style={{ marginTop: 16, background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
+      <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: 'var(--text-primary)' }}>{chart.title}</div>
+      <ResponsiveContainer width="100%" height={chart.chart === 'pie' ? 260 : Math.max(200, (chart.data.length || 0) * 28)}>
         {chart.chart === 'pie' ? (
           <PieChart>
-            <Pie data={chart.data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label={({ name, value }) => `${name}: ${value}%`}>
+            <Pie data={chart.data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} innerRadius={40} paddingAngle={2} label={({ name, value }) => `${name}: ${value}%`} labelLine={{ stroke: 'var(--text-muted)', strokeWidth: 1 }}>
               {chart.data.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
             </Pie>
-            <Tooltip />
+            <Tooltip contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }} />
           </PieChart>
         ) : (
-          <BarChart data={chart.data}>
-            <XAxis dataKey={chart.xKey || 'name'} tick={{ fontSize: 11 }} />
-            <YAxis tick={{ fontSize: 11 }} />
-            <Tooltip />
+          <BarChart data={chart.data} layout="vertical" margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
+            <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--text-muted)' }} />
+            <YAxis type="category" dataKey={chart.xKey || 'name'} tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} width={120} />
+            <Tooltip contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }} />
             {chart.yKeys
-              ? chart.yKeys.map((k, i) => <Bar key={k} dataKey={k} fill={CHART_COLORS[i % CHART_COLORS.length]} radius={[4, 4, 0, 0]} />)
-              : <Bar dataKey={chart.yKey || 'value'} fill={CHART_COLORS[0]} radius={[4, 4, 0, 0]} />
+              ? chart.yKeys.map((k, i) => <Bar key={k} dataKey={k} fill={CHART_COLORS[i % CHART_COLORS.length]} radius={[0, 4, 4, 0]} barSize={18} />)
+              : <Bar dataKey={chart.yKey || 'value'} fill={CHART_COLORS[0]} radius={[0, 4, 4, 0]} barSize={18} />
             }
           </BarChart>
         )}
@@ -375,7 +407,7 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
 
       // Auto-generate charts from markdown tables in the response
       if (fullContent) {
-        const charts = parseMarkdownTables(fullContent)
+        const charts = parseContentForCharts(fullContent)
         if (charts.length > 0) {
           updateLast({ charts })
         }
@@ -479,8 +511,15 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
                   <button className={styles.msgActionBtn} onClick={() => { navigator.clipboard.writeText(msg.content); setCopiedIdx(i); setTimeout(() => setCopiedIdx(null), 1500) }}>
                     <Copy size={12} /> {copiedIdx === i ? 'Copied!' : 'Copy'}
                   </button>
-                  <button className={styles.msgActionBtn} onClick={() => sendMessage('Turn the above findings into a visual chart')}>
-                    <BarChart3 size={12} /> Add Chart
+                  <button className={styles.msgActionBtn} onClick={() => {
+                    const charts = parseContentForCharts(msg.content)
+                    if (charts.length > 0) {
+                      setMessages(prev => { const u = [...prev]; u[i] = { ...u[i], charts }; return u })
+                    } else {
+                      sendMessage('Summarize the key data points from above as a markdown table with labels and percentages')
+                    }
+                  }}>
+                    <BarChart3 size={12} /> {msg.charts?.length ? 'Refresh Chart' : 'Add Chart'}
                   </button>
                   <button className={styles.msgActionBtn} onClick={() => { const blob = new Blob([msg.content], { type: 'text/markdown' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `klaus-report-${i}.md`; a.click() }}>
                     <FileDown size={12} /> Save Report

@@ -10,6 +10,7 @@ const Explorer = lazy(() => import('./pages/Explorer'))
 const SQLLab = lazy(() => import('./pages/SQLLab'))
 const Insights = lazy(() => import('./pages/Insights'))
 const Reports = lazy(() => import('./pages/Reports'))
+const DuckDB = lazy(() => import('./pages/DuckDB'))
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -26,6 +27,7 @@ function App() {
             <Route path="sql" element={<SQLLab apiUrl={API_URL} />} />
             <Route path="insights" element={<Insights apiUrl={API_URL} />} />
             <Route path="reports" element={<Reports apiUrl={API_URL} />} />
+            <Route path="duckdb" element={<DuckDB apiUrl={API_URL} />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

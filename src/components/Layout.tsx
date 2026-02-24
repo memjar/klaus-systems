@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { Outlet, NavLink } from 'react-router-dom'
-import { MessageSquare, Terminal, LayoutDashboard, Database, Code2, Brain, FileBarChart, LogOut, Menu, X } from 'lucide-react'
+import { MessageSquare, Terminal, LayoutDashboard, Database, Code2, Brain, FileBarChart, HardDrive, LogOut, Menu, X } from 'lucide-react'
 import styles from './Layout.module.css'
 
 export default function Layout({ apiUrl: _apiUrl }: { apiUrl: string }) {
@@ -53,6 +53,10 @@ export default function Layout({ apiUrl: _apiUrl }: { apiUrl: string }) {
           <NavLink to="/sql" className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ''}`} onClick={closeSidebar}>
             <Code2 size={18} />
             <span>SQL Lab</span>
+          </NavLink>
+          <NavLink to="/duckdb" className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ''}`} onClick={closeSidebar}>
+            <HardDrive size={18} />
+            <span>DuckDB</span>
           </NavLink>
 
           <div className={styles.sectionLabel}>Intelligence</div>
