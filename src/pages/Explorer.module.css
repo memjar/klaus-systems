@@ -95,7 +95,7 @@
 
 .tableHeader {
   display: grid;
-  grid-template-columns: 2.5fr 1fr 0.7fr 3fr;
+  grid-template-columns: 2.5fr 1fr 0.7fr 1.5fr;
   padding: 12px 20px;
   background: var(--bg-tertiary);
   font-size: 11px;
@@ -107,7 +107,7 @@
 
 .row {
   display: grid;
-  grid-template-columns: 2.5fr 1fr 0.7fr 3fr;
+  grid-template-columns: 2.5fr 1fr 0.7fr 1.5fr;
   padding: 12px 20px;
   border-top: 1px solid var(--border);
   align-items: center;
@@ -198,6 +198,14 @@
 .exportBtn:hover {
   border-color: var(--green);
   color: var(--green);
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 /* ===== MOBILE ===== */
