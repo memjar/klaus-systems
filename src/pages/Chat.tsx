@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Send, Loader2, Paperclip, FileText, TrendingUp, BookOpen, AlertTriangle, Copy, BarChart3, FileDown, RotateCcw, ChevronsRight } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import MarkdownContent from '../components/MarkdownContent'
+import DocumentPreview from '../components/DocumentPreview'
 import styles from './Chat.module.css'
 
 const THINKING_MESSAGES = [
@@ -62,6 +63,12 @@ interface ToolActivity {
   durationMs?: number
 }
 
+interface DocumentInfo {
+  docId: string
+  title: string
+  format: 'pdf' | 'html'
+}
+
 interface Message {
   role: 'user' | 'assistant'
   content: string
@@ -69,6 +76,7 @@ interface Message {
   responseTime?: number
   tools?: ToolActivity[]
   thinking?: string
+  document?: DocumentInfo
 }
 
 const CHART_COLORS = ['#4ade80', '#6366f1', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#14b8a6', '#f97316', '#a78bfa']
@@ -414,6 +422,9 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
               updateLast({ tools: [...toolsUsed] })
             } else if (parsed.type === 'thinking') {
               updateLast({ thinking: parsed.content })
+            } else if (parsed.type === 'document') {
+              // Document generated — show preview card
+              updateLast({ document: { docId: parsed.doc_id, title: parsed.title || 'Klaus Report', format: parsed.format || 'pdf' } })
             } else if (parsed.type === 'done') {
               // final event
             } else if (parsed.message?.content) {
@@ -521,7 +532,6 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
                 ))}
               </div>
             </div>
-          )
         )}
         {messages.map((msg, i) => (
           <div key={i} className={`${styles.message} ${styles[msg.role]}`}>
@@ -541,6 +551,14 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
                 <MarkdownContent content={msg.content} responseTime={msg.responseTime} />
               </div>
               {msg.charts?.map((c, ci) => <InlineChart key={ci} chart={c} />)}
+              {msg.document && (
+                <DocumentPreview
+                  docId={msg.document.docId}
+                  title={msg.document.title}
+                  format={msg.document.format}
+                  apiUrl={apiUrl}
+                />
+              )}
               {msg.role === 'assistant' && msg.content && (
                 <div className={styles.msgActions}>
                   <button className={styles.msgActionBtn} onClick={() => { navigator.clipboard.writeText(msg.content); setCopiedIdx(i); setTimeout(() => setCopiedIdx(null), 1500) }}>
@@ -558,6 +576,21 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
                   </button>
                   <button className={styles.msgActionBtn} onClick={() => { const blob = new Blob([msg.content], { type: 'text/markdown' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `klaus-report-${i}.md`; a.click() }}>
                     <FileDown size={12} /> Save Report
+                  </button>
+                  <button className={styles.msgActionBtn} onClick={async () => {
+                    try {
+                      const res = await fetch(`${apiUrl}/klaus/imi/generate-document`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+                        body: JSON.stringify({ content: msg.content, title: `Klaus Report ${i + 1}`, format: 'pdf' })
+                      })
+                      if (res.ok) {
+                        const data = await res.json()
+                        setMessages(prev => { const u = [...prev]; u[i] = { ...u[i], document: { docId: data.doc_id, title: data.title || `Klaus Report ${i + 1}`, format: 'pdf' } }; return u })
+                      }
+                    } catch { /* silent */ }
+                  }}>
+                    <FileDown size={12} /> Export PDF
                   </button>
                 </div>
               )}
