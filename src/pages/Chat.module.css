@@ -512,6 +512,50 @@
   transform: translateY(-1px);
 }
 
+/* ===== RETRY / CONTINUE BAR ===== */
+.retryBar {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  padding: 8px 0;
+}
+
+.retryBtn,
+.continueGenBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: var(--font-sans);
+}
+
+.retryBtn {
+  background: rgba(255, 0, 0, 0.1);
+  border: 1px solid rgba(255, 0, 0, 0.3);
+  color: var(--red-light);
+}
+
+.retryBtn:hover {
+  background: rgba(255, 0, 0, 0.2);
+  border-color: var(--red-light);
+}
+
+.continueGenBtn {
+  background: rgba(0, 255, 65, 0.1);
+  border: 1px solid rgba(0, 255, 65, 0.3);
+  color: var(--green);
+}
+
+.continueGenBtn:hover {
+  background: rgba(0, 255, 65, 0.2);
+  border-color: var(--green);
+}
+
 /* ===== MOBILE ===== */
 @media (max-width: 768px) {
   .messages {
@@ -554,7 +598,7 @@
 
   .input {
     padding: 10px 12px;
-    font-size: 14px;
+    font-size: 16px;
   }
 
   .attachBtn {

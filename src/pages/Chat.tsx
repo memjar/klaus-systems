@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Loader2, Paperclip, FileText, TrendingUp, BookOpen, AlertTriangle, Copy, BarChart3, FileDown } from 'lucide-react'
+import { Send, Loader2, Paperclip, FileText, TrendingUp, BookOpen, AlertTriangle, Copy, BarChart3, FileDown, RotateCcw, ChevronsRight } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import MarkdownContent from '../components/MarkdownContent'
 import styles from './Chat.module.css'
@@ -566,6 +566,37 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
             </div>
           </div>
         )}
+        {/* Retry & Continue buttons */}
+        {!loading && messages.length > 0 && (() => {
+          const last = messages[messages.length - 1]
+          const isError = last.role === 'assistant' && (last.content.startsWith('Connection error') || last.content.startsWith('No response') || last.content.startsWith('❌'))
+          const isTruncated = last.role === 'assistant' && last.content.length > 800 && !last.content.trimEnd().endsWith('.') && !last.content.trimEnd().endsWith('!') && !last.content.trimEnd().endsWith('?') && !last.content.trimEnd().endsWith('```') && !last.content.trimEnd().endsWith('---')
+          if (!isError && !isTruncated) return null
+          return (
+            <div className={styles.retryBar}>
+              {isError && (
+                <button className={styles.retryBtn} onClick={() => {
+                  // Find last user message and retry it
+                  const lastUser = [...messages].reverse().find(m => m.role === 'user')
+                  if (lastUser) {
+                    // Remove the error message
+                    setMessages(prev => prev.slice(0, -1))
+                    setTimeout(() => sendMessage(lastUser.content), 50)
+                  }
+                }}>
+                  <RotateCcw size={14} /> Retry
+                </button>
+              )}
+              {isTruncated && (
+                <button className={styles.continueGenBtn} onClick={() => {
+                  sendMessage('Continue your previous response from exactly where you left off. Do not repeat anything — pick up mid-sentence if needed.')
+                }}>
+                  <ChevronsRight size={14} /> Continue
+                </button>
+              )}
+            </div>
+          )
+        })()}
         <div ref={bottomRef} />
       </div>
       <form onSubmit={handleSubmit} className={styles.inputArea}>
