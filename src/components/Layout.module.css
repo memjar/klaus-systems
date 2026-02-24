@@ -183,6 +183,20 @@
     flex-shrink: 0;
   }
 
+  .newChatBtn {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
   .sidebar {
     position: fixed;
     top: 0;

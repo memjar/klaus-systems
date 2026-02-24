@@ -1,10 +1,12 @@
 import { useState, useCallback } from 'react'
-import { Outlet, NavLink } from 'react-router-dom'
-import { MessageSquare, Terminal, LayoutDashboard, Database, Code2, Brain, FileBarChart, HardDrive, LogOut, Menu, X } from 'lucide-react'
+import { Outlet, NavLink, useLocation } from 'react-router-dom'
+import { MessageSquare, Terminal, LayoutDashboard, Database, Code2, Brain, FileBarChart, HardDrive, LogOut, Menu, X, SquarePen } from 'lucide-react'
 import styles from './Layout.module.css'
 
 export default function Layout({ apiUrl: _apiUrl }: { apiUrl: string }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const location = useLocation()
+  const isChat = location.pathname === '/'
 
   const closeSidebar = useCallback(() => setSidebarOpen(false), [])
 
@@ -19,7 +21,13 @@ export default function Layout({ apiUrl: _apiUrl }: { apiUrl: string }) {
           <span className={styles.logoK}>K</span>
           <span className={styles.logoText}>KLAUS</span>
         </div>
-        <div className={styles.mobileHeaderSpacer} />
+        {isChat ? (
+          <button className={styles.newChatBtn} onClick={() => window.dispatchEvent(new Event('klaus-new-chat'))} aria-label="New Chat">
+            <SquarePen size={18} />
+          </button>
+        ) : (
+          <div className={styles.mobileHeaderSpacer} />
+        )}
       </header>
 
       {/* Overlay for mobile */}
