@@ -449,6 +449,28 @@ export default function Kode({ apiUrl }: { apiUrl: string }) {
               </div>
             ))
           )}
+          <div className={styles.sidebarDivider} />
+          <span className={styles.sidebarLabel}>Quick Actions</span>
+          <div className={styles.suggestions}>
+            {[
+              { label: 'Brand Health Summary', prompt: 'Give me a brand health summary across all loaded datasets' },
+              { label: 'Top Anomalies', prompt: 'What are the top anomalies and outliers in the data?' },
+              { label: 'Key Demographics', prompt: 'Break down the key demographic segments and their differences' },
+              { label: 'Competitive Analysis', prompt: 'Compare brand performance against competitors in the data' },
+              { label: 'Trend Insights', prompt: 'What trends or patterns are emerging from the survey data?' },
+              { label: 'NPS / Satisfaction', prompt: 'Analyze NPS scores and satisfaction metrics across segments' },
+              { label: 'Generate Report', prompt: 'Generate a comprehensive research report from the loaded data' },
+              { label: 'Cross-Tab Analysis', prompt: 'Run cross-tabulation analysis on key variables' },
+            ].map(s => (
+              <button
+                key={s.label}
+                className={styles.suggestionBtn}
+                onClick={() => { setChatInput(s.prompt); chatInputRef.current?.focus() }}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className={styles.canvas}>
