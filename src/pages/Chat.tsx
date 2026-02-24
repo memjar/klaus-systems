@@ -183,15 +183,67 @@ function InlineChart({ chart }: { chart: ChartData }) {
   )
 }
 
+interface Briefing {
+  date: string
+  whereYouWere: string
+  whatYouFound: string
+  whereGoing: string
+  lastMessages: Message[]
+}
+
+function generateBriefing(msgs: Message[]): Briefing | null {
+  if (msgs.length < 2) return null
+  const userMsgs = msgs.filter(m => m.role === 'user')
+  const assistantMsgs = msgs.filter(m => m.role === 'assistant' && m.content)
+  if (!userMsgs.length || !assistantMsgs.length) return null
+  return {
+    date: new Date().toISOString(),
+    whereYouWere: userMsgs[0].content.slice(0, 120),
+    whatYouFound: assistantMsgs[assistantMsgs.length - 1].content.slice(0, 120),
+    whereGoing: userMsgs[userMsgs.length - 1].content.slice(0, 120),
+    lastMessages: msgs.slice(-10),
+  }
+}
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'Just now'
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  const days = Math.floor(hrs / 24)
+  if (days === 1) return 'Yesterday'
+  return `${days} days ago`
+}
+
 export default function Chat({ apiUrl }: { apiUrl: string }) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [uploadedFile, setUploadedFile] = useState<string | null>(null)
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
+  const [briefing, setBriefing] = useState<Briefing | null>(() => {
+    try { const b = localStorage.getItem('klaus_briefing'); return b ? JSON.parse(b) : null } catch { return null }
+  })
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Auto-save briefing on unload and when messages change
+  useEffect(() => {
+    const save = () => {
+      const b = generateBriefing(messages)
+      if (b) localStorage.setItem('klaus_briefing', JSON.stringify(b))
+    }
+    window.addEventListener('beforeunload', save)
+    return () => window.removeEventListener('beforeunload', save)
+  }, [messages])
+
+  useEffect(() => {
+    const b = generateBriefing(messages)
+    if (b) localStorage.setItem('klaus_briefing', JSON.stringify(b))
+  }, [messages])
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -368,26 +420,41 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
     <div className={styles.container}>
       <div className={styles.messages}>
         {messages.length === 0 && (
-          <div className={styles.empty}>
-            <span className={styles.emptyK}>K</span>
-            <h2>Klaus IMI Research Intelligence</h2>
-            <p>Hydra-routed AI — auto-selects optimal model per query. 55+ years of IMI consumer research, 18 countries, 70% of global GDP.</p>
-            <div className={styles.features}>
-              {IMI_FEATURES.map(f => (
-                <button key={f.label} className={styles.featureBtn} onClick={() => sendMessage(f.prompt)}>
-                  {f.icon}
-                  <span>{f.label}</span>
-                </button>
-              ))}
+          briefing ? (
+            <div className={styles.empty}>
+              <div className={styles.briefing}>
+                <span className={styles.briefingDate}>{timeAgo(briefing.date)}</span>
+                <div className={styles.briefingLine}><span className={styles.briefingLabel}>You were exploring:</span> {briefing.whereYouWere}</div>
+                <div className={styles.briefingLine}><span className={styles.briefingLabel}>Klaus found:</span> {briefing.whatYouFound}</div>
+                <div className={styles.briefingLine}><span className={styles.briefingLabel}>Next up:</span> {briefing.whereGoing}</div>
+                <div className={styles.briefingActions}>
+                  <button className={styles.continueBtn} onClick={() => { setMessages(briefing.lastMessages); setBriefing(null); localStorage.removeItem('klaus_briefing') }}>Continue</button>
+                  <button className={styles.newBtn} onClick={() => { setBriefing(null); localStorage.removeItem('klaus_briefing') }}>Something new</button>
+                </div>
+              </div>
             </div>
-            <div className={styles.suggestions}>
-              {SUGGESTIONS.map(s => (
-                <button key={s} className={styles.suggestion} onClick={() => sendMessage(s)}>
-                  {s}
-                </button>
-              ))}
+          ) : (
+            <div className={styles.empty}>
+              <span className={styles.emptyK}>K</span>
+              <h2>Klaus IMI Research Intelligence</h2>
+              <p>Hydra-routed AI — auto-selects optimal model per query. 55+ years of IMI consumer research, 18 countries, 70% of global GDP.</p>
+              <div className={styles.features}>
+                {IMI_FEATURES.map(f => (
+                  <button key={f.label} className={styles.featureBtn} onClick={() => sendMessage(f.prompt)}>
+                    {f.icon}
+                    <span>{f.label}</span>
+                  </button>
+                ))}
+              </div>
+              <div className={styles.suggestions}>
+                {SUGGESTIONS.map(s => (
+                  <button key={s} className={styles.suggestion} onClick={() => sendMessage(s)}>
+                    {s}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )
         )}
         {messages.map((msg, i) => (
           <div key={i} className={`${styles.message} ${styles[msg.role]}`}>

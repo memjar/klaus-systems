@@ -51,15 +51,66 @@ interface KodeMessage {
   responseTime?: number
 }
 
+interface KodeBriefing {
+  date: string
+  whereYouWere: string
+  whatYouFound: string
+  whereGoing: string
+  lastMessages: KodeMessage[]
+}
+
+function generateBriefing(msgs: KodeMessage[]): KodeBriefing | null {
+  if (msgs.length < 2) return null
+  const userMsgs = msgs.filter(m => m.role === 'user')
+  const assistantMsgs = msgs.filter(m => m.role === 'assistant' && m.content)
+  if (!userMsgs.length || !assistantMsgs.length) return null
+  return {
+    date: new Date().toISOString(),
+    whereYouWere: userMsgs[0].content.slice(0, 120),
+    whatYouFound: assistantMsgs[assistantMsgs.length - 1].content.slice(0, 120),
+    whereGoing: userMsgs[userMsgs.length - 1].content.slice(0, 120),
+    lastMessages: msgs.slice(-10),
+  }
+}
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'Just now'
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  const days = Math.floor(hrs / 24)
+  if (days === 1) return 'Yesterday'
+  return `${days} days ago`
+}
+
 export default function Kode({ apiUrl }: { apiUrl: string }) {
   const [messages, setMessages] = useState<KodeMessage[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [uploadedFile, setUploadedFile] = useState<string | null>(null)
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
+  const [briefing, setBriefing] = useState<KodeBriefing | null>(() => {
+    try { const b = localStorage.getItem('kode_briefing'); return b ? JSON.parse(b) : null } catch { return null }
+  })
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    const save = () => {
+      const b = generateBriefing(messages)
+      if (b) localStorage.setItem('kode_briefing', JSON.stringify(b))
+    }
+    window.addEventListener('beforeunload', save)
+    return () => window.removeEventListener('beforeunload', save)
+  }, [messages])
+
+  useEffect(() => {
+    const b = generateBriefing(messages)
+    if (b) localStorage.setItem('kode_briefing', JSON.stringify(b))
+  }, [messages])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -228,16 +279,31 @@ export default function Kode({ apiUrl }: { apiUrl: string }) {
     <div className={styles.container}>
       <div className={styles.messages}>
         {messages.length === 0 && (
-          <div className={styles.empty}>
-            <div className={styles.emptyIcon}><Terminal size={40} /></div>
-            <h2>Klaus Kode</h2>
-            <p>Research-grade AI terminal. Upload datasets, run analysis, ask anything about your IMI survey data.</p>
-            <div className={styles.suggestions}>
-              {['What datasets are available?', 'Summarize brand health trends', 'Compare GenZ vs Boomers', 'Show sponsorship ROI'].map(s => (
-                <button key={s} className={styles.suggestion} onClick={() => { setInput(s); inputRef.current?.focus() }}>{s}</button>
-              ))}
+          briefing ? (
+            <div className={styles.empty}>
+              <div className={styles.briefing}>
+                <span className={styles.briefingDate}>{timeAgo(briefing.date)}</span>
+                <div className={styles.briefingLine}><span className={styles.briefingLabel}>You were exploring:</span> {briefing.whereYouWere}</div>
+                <div className={styles.briefingLine}><span className={styles.briefingLabel}>Klaus found:</span> {briefing.whatYouFound}</div>
+                <div className={styles.briefingLine}><span className={styles.briefingLabel}>Next up:</span> {briefing.whereGoing}</div>
+                <div className={styles.briefingActions}>
+                  <button className={styles.continueBtn} onClick={() => { setMessages(briefing.lastMessages); setBriefing(null); localStorage.removeItem('kode_briefing') }}>Continue</button>
+                  <button className={styles.newBtn} onClick={() => { setBriefing(null); localStorage.removeItem('kode_briefing') }}>Something new</button>
+                </div>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className={styles.empty}>
+              <div className={styles.emptyIcon}><Terminal size={40} /></div>
+              <h2>Klaus Kode</h2>
+              <p>Research-grade AI terminal. Upload datasets, run analysis, ask anything about your IMI survey data.</p>
+              <div className={styles.suggestions}>
+                {['What datasets are available?', 'Summarize brand health trends', 'Compare GenZ vs Boomers', 'Show sponsorship ROI'].map(s => (
+                  <button key={s} className={styles.suggestion} onClick={() => { setInput(s); inputRef.current?.focus() }}>{s}</button>
+                ))}
+              </div>
+            </div>
+          )
         )}
 
         {messages.map((msg, i) => (
