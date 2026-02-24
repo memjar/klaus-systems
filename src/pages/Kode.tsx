@@ -101,8 +101,8 @@ export default function Kode({ apiUrl }: { apiUrl: string }) {
     }
   }
 
-  const sendMessage = async () => {
-    const msg = input.trim()
+  const sendMessage = async (text?: string) => {
+    const msg = (text || input).trim()
     if (!msg || loading) return
 
     setMessages(prev => [...prev, { role: 'user', content: msg }])
@@ -277,7 +277,7 @@ export default function Kode({ apiUrl }: { apiUrl: string }) {
                       <button
                         key={action.label}
                         className={styles.postUploadBtn}
-                        onClick={() => { setInput(action.prompt); setTimeout(() => inputRef.current?.focus(), 50) }}
+                        onClick={() => sendMessage(action.prompt)}
                       >
                         {action.label}
                       </button>

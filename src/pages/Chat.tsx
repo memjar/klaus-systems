@@ -406,6 +406,27 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
                 <MarkdownContent content={msg.content} responseTime={msg.responseTime} />
               </div>
               {msg.charts?.map((c, ci) => <InlineChart key={ci} chart={c} />)}
+              {msg.content.includes('uploaded successfully') && i === messages.length - 1 && !loading && (
+                <div className={styles.postUploadActions}>
+                  <p className={styles.postUploadLabel}>What would you like to do?</p>
+                  <div className={styles.postUploadGrid}>
+                    {[
+                      { label: 'Summarize Key Findings', prompt: 'Give me a summary of the key findings from this survey — top-line results, notable patterns, and anything surprising.' },
+                      { label: 'Break Down by Segment', prompt: 'Break down the results by demographic segments (age, gender, region). Show me where the biggest differences are.' },
+                      { label: 'Compare with Benchmarks', prompt: 'Compare these results against industry benchmarks or our other datasets. Where do we over/under-index?' },
+                      { label: 'Generate Client Report', prompt: 'Generate a client-ready executive summary of this data with key insights, charts, and recommended actions.' },
+                    ].map(action => (
+                      <button
+                        key={action.label}
+                        className={styles.postUploadBtn}
+                        onClick={() => sendMessage(action.prompt)}
+                      >
+                        {action.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         ))}
