@@ -5,6 +5,33 @@
   width: 100%;
 }
 
+.chatHeader {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 16px;
+  flex-shrink: 0;
+}
+
+.newChatBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.newChatBtn:hover {
+  border-color: var(--green);
+  color: var(--green);
+}
+
 .messages {
   flex: 1;
   overflow-y: auto;
@@ -593,6 +620,7 @@
 
   .inputArea {
     padding: 10px 12px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
     gap: 6px;
   }
 

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Send, Loader2, Paperclip, FileText, TrendingUp, BookOpen, AlertTriangle, Copy, BarChart3, FileDown, RotateCcw, ChevronsRight } from 'lucide-react'
+import { Send, Loader2, Paperclip, FileText, TrendingUp, BookOpen, AlertTriangle, Copy, BarChart3, FileDown, RotateCcw, ChevronsRight, SquarePen } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import MarkdownContent from '../components/MarkdownContent'
 import styles from './Chat.module.css'
@@ -458,6 +458,14 @@ export default function Chat({ apiUrl }: { apiUrl: string }) {
 
   return (
     <div className={styles.container}>
+      {messages.length > 0 && (
+        <div className={styles.chatHeader}>
+          <button className={styles.newChatBtn} onClick={() => { setMessages([]); localStorage.removeItem(messagesKey); localStorage.removeItem(briefingKey); setBriefing(null); setUploadedFile(null) }}>
+            <SquarePen size={16} />
+            <span>New Chat</span>
+          </button>
+        </div>
+      )}
       <div className={styles.messages}>
         {messages.length === 0 && (
           briefing ? (

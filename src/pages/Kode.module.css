@@ -491,6 +491,12 @@
 }
 
 /* ===== MOBILE ===== */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .chatBar {
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+  }
+}
+
 @media (max-width: 768px) {
   .body {
     grid-template-columns: 1fr;
