@@ -203,11 +203,29 @@
 @media (max-width: 768px) {
   .markdown {
     font-size: 13px;
+    overflow-x: hidden;
   }
 
   .markdown th,
   .markdown td {
     padding: 6px 8px;
-    font-size: 12px;
+    font-size: 11px;
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .markdown th {
+    white-space: normal;
+  }
+
+  .copyBtn {
+    position: static;
+    display: block;
+    margin: 6px 6px 0 auto;
+    width: fit-content;
+  }
+
+  .tableWrapper {
+    margin: 8px 0;
   }
 }

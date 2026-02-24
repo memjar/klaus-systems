@@ -582,4 +582,27 @@
   .postUploadGrid {
     grid-template-columns: 1fr;
   }
+
+  .msgActions {
+    flex-wrap: wrap;
+    opacity: 1;
+  }
+
+  .avatar {
+    display: none;
+  }
+
+  .message {
+    max-width: 100%;
+  }
+
+  .bubble {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .content {
+    overflow-x: auto;
+    max-width: 100%;
+  }
 }

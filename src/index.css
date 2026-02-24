@@ -28,6 +28,8 @@
 html, body, #root {
   height: 100%;
   width: 100%;
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
 }
 
 body {
@@ -35,6 +37,9 @@ body {
   color: var(--text-primary);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  position: fixed;
+  width: 100%;
+  height: 100%;
 }
 
 ::selection {
