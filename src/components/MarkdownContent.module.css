@@ -2,7 +2,7 @@
   font-family: var(--font-sans);
   font-size: 14px;
   line-height: 1.7;
-  color: var(--text-primary);
+  color: inherit;
   word-break: break-word;
 }
 

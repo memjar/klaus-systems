@@ -181,6 +181,7 @@
   border-radius: 12px 12px 12px 2px;
   flex-direction: column;
   align-items: stretch;
+  color: var(--text-primary);
 }
 
 .content {
